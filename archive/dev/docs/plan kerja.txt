@@ -1,0 +1,5 @@
+Dari dua peningkatan arsitektur di atas, mana yang ingin kita kerjakan dan selesaikan terlebih dahulu hari ini?
+
+Membuat Endpoint API Manual URL YouTube (beserta logika penarikan komentarnya).
+
+Memperketat Filter Judul Berita Google News RSS (agar data berita 100% valid tentang Universitas Terbuka).

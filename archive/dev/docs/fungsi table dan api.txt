@@ -1,0 +1,35 @@
+3. Penjelasan 7 Tabel Database (SQLite)
+Struktur database yang dirancang ini sangat efisien untuk memisahkan data kotor dan data bersih:
+
+sources: Menyimpan daftar platform (YouTube, RSS, Twitter, Reddit) dan status aktifnya.
+
+youtube_videos: Tabel khusus menyimpan ID dan Judul Video YouTube. Tujuannya agar sistem tidak memproses video yang sama berulang kali di masa depan.
+
+raw_mentions: "Gudang kotor". Menyimpan teks asli mentah apa adanya dari berita RSS atau komentar YouTube, lengkap dengan tautan dan nama penulisnya.
+
+processed_mentions: "Gudang bersih". Tabel ini berisi teks dari raw_mentions yang sudah dibersihkan oleh NLP Sastrawi, lengkap dengan label sentimen (Positif/Negatif/Netral), skor analitik, dan kata kunci (YAKE).
+
+hourly_aggregates: Tabel rekapitulasi data per jam.
+
+daily_aggregates: Tabel rekapitulasi data per hari. (Tabel 5 dan 6 dibuat agar dashboard frontend bisa memuat grafik seketika tanpa perlu menghitung ulang puluhan ribu baris sentimen dari awal setiap kali di-refresh).
+
+fetch_logs: Mencatat riwayat kerja mesin penarik data (jam berapa menarik data, berapa data yang didapat, sukses atau gagal).
+
+4. Penjelasan API di Swagger (http://127.0.0.1:8000/docs)
+API ini adalah jembatan penghubung untuk dashboard Anda. Fungsinya terbagi dalam tiga kelompok utama:
+
+Grup Konfigurasi & Trigger: * GET /api/health: Memeriksa apakah server menyala.
+
+POST /api/fetch/manual: Tombol darurat untuk memaksa mesin langsung menarik data saat itu juga tanpa menunggu jadwal 1 jam.
+
+Grup Analitik (Dashboard Charts):
+
+/api/analytics/summary: Menghasilkan angka metrik utama (total data, persentase sentimen positif/negatif).
+
+/api/analytics/trends & /volume: Menyuplai data titik-titik (X dan Y) untuk menggambar grafik garis dan grafik area.
+
+/api/analytics/keywords & /trending: Mengirimkan daftar kata kunci terpopuler dan topik yang sedang naik daun.
+
+Grup Detail Mentions:
+
+/api/mentions/recent: Mengirimkan data untuk tabel di bawah dashboard secara berhalaman (pagination) agar browser tidak berat memuat ribuan data sekaligus.

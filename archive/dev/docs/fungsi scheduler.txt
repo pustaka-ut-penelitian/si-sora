@@ -1,0 +1,44 @@
+Penjelasan Lengkap Ekosistem Library
+Sambil menunggu proses instalasinya berjalan, mari kita bedah satu per satu kegunaan dari setiap library yang Anda susun dalam proyek analitik ini agar Anda paham fungsi fundamentalnya:
+
+1. Core (Fondasi Backend)
+
+fastapi: Framework web modern berkinerja tinggi untuk membangun API dengan Python.
+
+uvicorn[standard]: Server web ASGI yang berfungsi sebagai mesin untuk menjalankan dan mengekspos aplikasi FastAPI Anda ke internet.
+
+python-dotenv: Digunakan untuk membaca file .env sehingga kredensial rahasia (seperti API Key YouTube dan Twitter) tidak bocor di dalam source code.
+
+2. Database (Manajemen Data)
+
+sqlalchemy: ORM (Object-Relational Mapping) yang memungkinkan Anda berinteraksi dengan database menggunakan kode Python yang rapi tanpa perlu menulis kueri SQL mentah secara manual.
+
+aiosqlite: Driver khusus agar komunikasi dengan database SQLite bisa berjalan secara asynchronous (tidak memblokir proses lain saat sedang menyimpan data).
+
+alembic: Alat manajemen migrasi database. Jika nanti Anda menambah kolom baru di tabel sentimen, Alembic akan menerapkannya dengan aman tanpa menghapus data yang sudah ada.
+
+3. Scheduler (Penjadwalan)
+
+apscheduler: Library ini bertugas mengeksekusi fungsi di latar belakang secara otomatis (misalnya, memicu penarikan data mentah per jam) tanpa mengganggu jalannya API.
+
+4. Text Processing (Mesin Analisis Sentimen)
+
+sastrawi: Pusaka utama NLP (Pemrosesan Bahasa Alami) untuk bahasa Indonesia. Berfungsi untuk menghapus kata hubung (stopword) dan mengubah kata berimbuhan menjadi kata dasar (stemming).
+
+yake: Ekstraktor kata kunci otomatis. Library inilah yang akan menyoroti topik terhangat (trending topics) dari ribuan komentar UT.
+
+beautifulsoup4: Digunakan untuk membersihkan dan membedah struktur HTML, khususnya saat menarik teks dari tautan Google News RSS.
+
+5. HTTP Clients (Pengambil Data Eksternal)
+
+httpx: Klien HTTP modern yang asynchronous. Bertugas melakukan pemanggilan data ke API YouTube, Reddit, dan Twitter dengan sangat cepat.
+
+feedparser: Pustaka spesifik yang didesain untuk membaca, memecah, dan mengambil informasi dari tautan RSS berita secara terstruktur.
+
+6. Utilities & Testing
+
+pydantic & pydantic-settings: Memvalidasi format data yang masuk dan keluar dari API Anda agar tidak ada data sampah (corrupt) yang merusak sistem.
+
+python-dateutil: Alat bantu untuk mengelola format tanggal dan waktu yang rumit dari berbagai timezone sosial media.
+
+pytest suite: Kerangka kerja untuk melakukan pengujian otomatis guna memastikan logika aplikasi Anda tidak memiliki bug.
