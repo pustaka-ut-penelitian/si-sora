@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, Request
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
@@ -66,8 +66,8 @@ app.include_router(api_router, prefix="/api")
 
 @app.get("/")
 @app.get("/api/index.py")
-async def root(request: Request):
-    return {"status": "ok", "service": "si_sora_api", "version": "1.0.0", "path": request.url.path, "headers": dict(request.headers)}
+async def root():
+    return {"status": "ok", "service": "si_sora_api", "version": "1.0.0"}
 
 @app.get("/health")
 async def health_check(db: AsyncSession = Depends(get_db)):
