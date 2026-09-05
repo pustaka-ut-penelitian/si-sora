@@ -18,7 +18,7 @@ if "supabase" in DATABASE_URL or "neon.tech" in DATABASE_URL or "sslmode=require
     connect_args["statement_cache_size"] = 0
     connect_args["prepared_statement_cache_size"] = 0
 
-engine = create_async_engine(DATABASE_URL, echo=False, connect_args=connect_args)
+engine = create_async_engine(DATABASE_URL, echo=False, pool_pre_ping=True, pool_recycle=300, connect_args=connect_args)
 AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:

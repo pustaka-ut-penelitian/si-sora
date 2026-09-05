@@ -65,11 +65,14 @@ app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(api_router, prefix="/api")
 
 @app.get("/")
+@app.get("/api")
+@app.get("/api/")
 @app.get("/api/index.py")
 async def root():
     return {"status": "ok", "service": "si_sora_api", "version": "1.0.0"}
 
 @app.get("/health")
+@app.get("/api/health")
 async def health_check(db: AsyncSession = Depends(get_db)):
     try:
         await db.execute(text("SELECT 1"))
