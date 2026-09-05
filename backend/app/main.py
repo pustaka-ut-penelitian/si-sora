@@ -14,24 +14,36 @@ from app.services.scheduler import start_scheduler, stop_scheduler
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with SessionLocal() as db:
-        query = select(User).where(User.username == "admin")
-        result = await db.execute(query)
-        admin_exists = result.scalar_one_or_none()
-        if not admin_exists:
-            new_admin = User(
-                username="admin",
-                password_hash=get_password_hash("admin123"),
-                role="ADMIN"
-            )
-            db.add(new_admin)
-            await db.commit()
-            import logging
-            logging.info("Akun Super Admin default berhasil dibuat (admin:***)")
+    try:
+        async with SessionLocal() as db:
+            query = select(User).where(User.username == "admin")
+            result = await db.execute(query)
+            admin_exists = result.scalar_one_or_none()
+            if not admin_exists:
+                new_admin = User(
+                    username="admin",
+                    password_hash=get_password_hash("admin123"),
+                    role="ADMIN"
+                )
+                db.add(new_admin)
+                await db.commit()
+    except Exception as e:
+        import logging
+        logging.error(f"Lifespan admin init: {e}")
     
-    start_scheduler()
+    try:
+        start_scheduler()
+    except Exception as e:
+        import logging
+        logging.error(f"Lifespan scheduler start: {e}")
+    
     yield
-    stop_scheduler()
+    
+    try:
+        stop_scheduler()
+    except Exception as e:
+        import logging
+        logging.error(f"Lifespan scheduler stop: {e}")
 
 app = FastAPI(title="SI SORA API (Sistem Informasi Social Opinion Reaction Analytics)", version="1.0.0", lifespan=lifespan)
 
@@ -51,6 +63,10 @@ app.add_middleware(
 
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(api_router, prefix="/api")
+
+@app.get("/")
+async def root():
+    return {"status": "ok", "service": "si_sora_api", "version": "1.0.0"}
 
 @app.get("/health")
 async def health_check(db: AsyncSession = Depends(get_db)):
