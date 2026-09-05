@@ -9,9 +9,11 @@ async def app(scope, receive, send):
     if scope.get("type") == "http":
         headers = dict(scope.get("headers", []))
         matched_path = headers.get(b"x-matched-path", b"").decode("utf-8")
-        if matched_path:
-            scope["path"] = matched_path
-            scope["raw_path"] = matched_path.encode("utf-8")
+        forwarded_uri = headers.get(b"x-forwarded-uri", b"").decode("utf-8")
+        real_path = forwarded_uri or matched_path
+        if real_path and real_path != "/api/index.py":
+            scope["path"] = real_path
+            scope["raw_path"] = real_path.encode("utf-8")
         elif scope.get("path") == "/api/index.py":
             scope["path"] = "/"
             scope["raw_path"] = b"/"
