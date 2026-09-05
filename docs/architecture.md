@@ -1,44 +1,36 @@
 # Arsitektur Sistem — SI SORA
 
 **Nama Sistem:** SI SORA (Sistem Informasi Social Opinion Reaction Analytics)  
-**Versi:** 6.0  
+**Versi:** 6.1  
 **Pola Desain:** Monorepo Decoupled (FastAPI Backend + React Vite Frontend)  
-**Strategi Cloud:** 100% Free Tier (Supabase + Render + Netlify + Cron-Job.org)  
+**Strategi Cloud:** 100% Free Tier (Supabase Cloud + Vercel Serverless + Vercel Edge CDN)  
 
 ---
 
 ## 1. Ikhtisar Arsitektur
 
-SI SORA dirancang menggunakan pola decoupled monorepo dengan pemisahan tegas antara logika backend (pengolahan data & AI inference) dan antarmuka frontend (visualisasi reaksi opini publik). Arsitektur ini mendukung *Dual-Environment* secara mulus: berjalan mandiri di komputer lokal pengembang menggunakan Docker PostgreSQL lokal, dan siap dideploy ke ekosistem cloud publik gratis.
+SI SORA dirancang menggunakan pola decoupled monorepo dengan pemisahan tegas antara logika backend (pengolahan data & AI inference) dan antarmuka frontend (visualisasi reaksi opini publik). Arsitektur ini mendukung *Dual-Environment* secara mulus: berjalan mandiri di komputer lokal pengembang menggunakan Docker PostgreSQL lokal, dan dideploy ke ekosistem cloud publik gratis tanpa kartu kredit/debit.
 
 ```
                     ┌──────────────────────────────┐
                     │    Public Data Sources       │
-                    │  (YouTube, Google Play Store)│
+                    │ (Play Store, YouTube, TikTok)│
                     └──────────────┬───────────────┘
                                    │ (Scraping / Crawling)
                                    ▼
-                    ┌──────────────────────────────┐
-                    │       FastAPI Backend        │
-                    │     (Python 3.11 / 3.13)     │
-                    └───────┬──────────────┬───────┘
-                            │              │
-           (Analysis Request)│              │ (Read / Write)
-                            ▼              ▼
-     ┌────────────────────────┐       ┌────────────────────────┐
-     │     Groq Cloud API     │       │ PostgreSQL (AsyncPG)   │
-     │  (openai/gpt-oss-20b)  │       │  - Local: Docker :5433 │
-     │     Inference Sentimen)│       │  - Prod: Supabase :5432│
-     └────────────────────────┘       └────────────┬───────────┘
-                                                   │
-                                     (JSON REST API│ JWT Bearer)
-                                                   ▼
-                                      ┌────────────────────────┐
-                                      │   React 19 Frontend    │
-                                      │   (Vite + Tailwind CSS)│
-                                      │  - Local: Port 5173    │
-                                      │  - Prod: Netlify CDN   │
-                                      └────────────────────────┘
+┌──────────────────┐    ┌──────────────────────────────┐
+│ Vercel Frontend  │───►│       FastAPI Backend        │
+│ (React 19 Vite)  │    │     (Python 3.12 ASGI)       │
+│ si-sora-frontend │    │      si-sora.vercel.app      │
+└──────────────────┘    └───────┬──────────────┬───────┘
+                                │              │
+               (Analysis Request)│              │ (Read / Write via Pooler)
+                                ▼              ▼
+         ┌────────────────────────┐       ┌────────────────────────┐
+         │     Groq Cloud API     │       │ PostgreSQL (AsyncPG)   │
+         │  (openai/gpt-oss-20b)  │       │ - Local: Docker :5433  │
+         │    Inference Sentimen  │       │ - Prod: Supabase :6543 │
+         └────────────────────────┘       └────────────────────────┘
 ```
 
 ---
@@ -48,27 +40,29 @@ SI SORA dirancang menggunakan pola decoupled monorepo dengan pemisahan tegas ant
 ```
 Riset Sentiment Analysis/
 ├── backend/
+│   ├── api/
+│   │   └── index.py         # Entrypoint ASGI serverless runtime Vercel
 │   ├── app/
 │   │   ├── api/             # Endpoint rute REST API & Otentikasi JWT
 │   │   │   ├── auth.py      # Login, validasi token, role requirement
 │   │   │   └── routes.py    # Analytics overview, topics, wordcloud, scraper trigger
 │   │   ├── core/            # Keamanan & hashing sandi (bcrypt)
 │   │   ├── db/              # Inisialisasi engine async SQLAlchemy & sesi DB
-│   │   │   └── session.py   # Handler dual-environment (SSL detection Supabase / non-SSL Docker)
+│   │   │   └── session.py   # Handler dual-env (Supabase Pooler, pool_pre_ping, SSL)
 │   │   ├── models/          # Definisi skema tabel ORM (RawComment, AIAnalysis, User, dll.)
 │   │   │   ├── base.py
 │   │   │   └── models.py
-│   │   ├── services/        # Service eksternal: Groq LLM, Wordcloud, Scraper
+│   │   ├── services/        # Service eksternal: Groq LLM, Wordcloud, Scrapers
 │   │   │   ├── ai_engine.py
 │   │   │   ├── wordcloud_gen.py
-│   │   │   ├── playstore_scraper.py
-│   │   │   └── youtube_scraper.py
-│   │   └── main.py          # Entrypoint FastAPI, CORS middleware, auto table migration
+│   │   │   ├── scheduler.py
+│   │   │   └── scrapers/    # Scraper multi-platform (Play Store, YouTube, TikTok/Apify)
+│   │   └── main.py          # Definisi FastAPI, CORS, rute root & health alias
+│   ├── vercel.json          # Konfigurasi rewrite & maxDuration Vercel backend
+│   ├── requirements.txt     # Dependensi Python produksi
 │   ├── .env                 # Kredensial lokal (diabaikan Git)
-│   ├── .env.example         # Template konfigurasi environment
-│   └── requirements.txt     # Dependensi Python
+│   └── .env.example         # Template konfigurasi environment
 ├── frontend/
-│   ├── public/              # Aset statis & file _redirects Netlify
 │   ├── src/
 │   │   ├── api/             # Klien Axios & interseptor token JWT
 │   │   │   └── client.ts    # Dynamic VITE_API_URL fallback
@@ -77,6 +71,7 @@ Riset Sentiment Analysis/
 │   │   ├── pages/           # Halaman utama (Dashboard, Explorer, Scraper, Users, Settings)
 │   │   ├── App.tsx
 │   │   └── main.tsx         # Root mounting, React Router, ProtectedRoute
+│   ├── vercel.json          # Aturan SPA routing fallback (/* -> /index.html)
 │   ├── package.json         # Dependensi Node.js / React 19
 │   ├── tailwind.config.js   # Konfigurasi tema Neo-Organic Nu-Brutalism
 │   └── vite.config.ts       # Bundler Vite
@@ -90,18 +85,20 @@ Riset Sentiment Analysis/
 
 ## 3. Komponen Arsitektur Utama
 
-### A. Backend Layer (Python FastAPI)
-- **FastAPI Framework:** Menyediakan RESTful API berkecepatan tinggi dengan validasi skema otomatis berbasis Pydantic V2.
-- **SQLAlchemy 2.0 (AsyncPG):** Pengolahan database sepenuhnya asynchronous non-blocking, mencegah bottleneck saat menangani antrean pembacaan komentar.
-- **Lifespan Auto-Migration:** Saat server pertama kali menyala, fungsi lifespan mengeksekusi pembuatan tabel otomatis (`Base.metadata.create_all`) dan membuat akun Super Admin bawaan jika belum ada di database.
-- **Dual-Environment Database Detection:** Menggunakan deteksi cerdas pada string `DATABASE_URL`. Jika terdeteksi host Supabase atau Neon, koneksi otomatis menyalakan mode SSL `CERT_NONE` yang dibutuhkan driver AsyncPG.
+### A. Backend Layer (Python FastAPI Serverless di Vercel)
+- **FastAPI Framework:** RESTful API modern berbasis Pydantic V2 dengan performa asinkron tinggi.
+- **Vercel Serverless Runtime:** Menjalankan file `backend/api/index.py` yang membungkus aplikasi FastAPI dengan dukungan routing native `/api/*`.
+- **SQLAlchemy 2.0 (AsyncPG) & Resiliensi Supabase Pooler:**
+  - Menghubungkan aplikasi ke Supavisor Pooler Supabase (Port `6543`, Mode `Transaction`).
+  - Mengaktifkan `pool_pre_ping=True` dan `pool_recycle=300` untuk mencegah error koneksi *stale/closed* saat kontainer serverless bangun dari kondisi idle.
+  - Mematikan cache statement (`statement_cache_size=0` & `prepared_statement_cache_size=0`) demi kompatibilitas penuh dengan mode transaction pooler.
+- **Lifespan Admin Init:** Secara otomatis memeriksa keberadaan akun Super Admin pada inisialisasi awal kontainer tanpa memblokir server.
 
-### B. Frontend Layer (React 19 + Vite)
-- **Modern React Stack:** Dibangun di atas React 19 dengan Vite 8 sebagai bundler ultra-cepat.
-- **Tailwind CSS Styling:** Menerapkan design system *Neo-Organic UI / Nu-Brutalism* dengan kartu bento, bayangan tegas (`hard shadows`), sudut membulat ekstrem (`squircle`), dan palet warna Universitas Terbuka.
-- **Client-Side Routing:** Menggunakan `react-router-dom` dengan komponen pembungkus `ProtectedRoute` yang mengecek token JWT secara aman di `localStorage`.
-- **Single Page Application (SPA) Resilience:** Dilengkapi file `frontend/public/_redirects` berisi `/* /index.html 200` untuk memastikan routing tidak crash saat halaman di-refresh di server Netlify.
+### B. Frontend Layer (React 19 + Vite di Vercel Edge CDN)
+- **Modern React Stack:** Dibangun di atas React 19 dengan bundler Vite 8.
+- **Tailwind CSS Styling:** Menerapkan design system *Neo-Organic UI / Nu-Brutalism* dengan kartu bento, bayangan tegas (*hard shadows*), sudut membulat ekstrem (*squircle*), dan palet warna Universitas Terbuka (Navy `#003f7a` & Gold `#fecb00`).
+- **Client-Side Routing & SPA Fallback:** Menggunakan `react-router-dom` dengan komponen pembungkus `ProtectedRoute`. Dilengkapi file `frontend/vercel.json` (`/* -> /index.html`) untuk menjamin navigasi halaman tidak pernah mengalami error 404 saat di-reload.
 
 ### C. Artificial Intelligence & Analytics Layer
-- **Groq Cloud API:** Mengirimkan prompt analisis terstruktur ke model `openai/gpt-oss-20b` untuk mengklasifikasikan sentimen (Positif, Negatif, Netral), mendeteksi skor emosi dominan (Senang, Kecewa, Marah, Bingung), serta mengekstraksi topik utama pembicaraan.
+- **Groq Cloud API:** Mengirimkan prompt analisis terstruktur ke model `openai/gpt-oss-20b` untuk mengklasifikasikan sentimen (Positif, Negatif, Netral), mendeteksi skor emosi dominan, serta mengekstraksi topik utama pembicaraan secara hemat kuota (batching 10 item).
 - **Dynamic Word Cloud Engine:** Mengolah frekuensi token kata menggunakan library `WordCloud` dan `Pillow`, lalu menghasilkan representasi visual berbasis Base64 PNG transparan dengan pewarnaan dinamis sesuai proporsi sentimen.

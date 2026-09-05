@@ -17,7 +17,8 @@ export function Login() {
     e.preventDefault();
     setError("");
     
-    if (!username.trim() || !password.trim()) {
+    const trimmedUser = username.trim();
+    if (!trimmedUser || !password) {
       setError("Username dan password wajib diisi.");
       return;
     }
@@ -25,18 +26,20 @@ export function Login() {
     setLoading(true);
 
     try {
-      const formData = new FormData();
-      formData.append("username", username);
-      formData.append("password", password);
-
-      const response = await apiClient.post("/api/auth/login", formData);
+      const response = await apiClient.post("/api/auth/login", {
+        username: trimmedUser,
+        password: password,
+      });
       const token = response.data.access_token;
       
       localStorage.setItem("token", token);
       navigate("/");
     } catch (err: any) {
       if (err.response?.status === 401) {
-        setError("Kredensial tidak valid. Periksa kembali username dan password Anda.");
+        setError(err.response?.data?.detail || "Kredensial tidak valid. Periksa kembali username dan password Anda.");
+      } else if (err.response?.data?.detail) {
+        const detailMsg = err.response.data.detail;
+        setError(typeof detailMsg === "string" ? detailMsg : "Data login tidak valid.");
       } else {
         setError("Terjadi kesalahan sistem. Tidak dapat menghubungi server.");
       }

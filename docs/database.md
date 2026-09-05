@@ -4,6 +4,7 @@
 **Database Engine:** PostgreSQL (Version 15+)  
 **Driver ORM:** SQLAlchemy 2.0 (AsyncPG)  
 **Pola Desain:** Asynchronous Non-Blocking dengan UUIDv4 & JSONB  
+**Infrastruktur Cloud:** Supabase Cloud (`si-sora-db` di Singapore `ap-southeast-1`)  
 
 ---
 
@@ -67,7 +68,7 @@ Menyimpan komentar mentah yang ditarik oleh modul *crawler/scraper* dari berbaga
 | Kolom | Tipe Data | Keterangan |
 | :--- | :--- | :--- |
 | `id` | `UUID` (Primary Key) | Pengenal unik komentar berbasis `uuid.uuid4`. |
-| `platform` | `VARCHAR(50)` | Asal platform (contoh: `youtube`, `playstore`, `twitter`). |
+| `platform` | `VARCHAR(50)` | Asal platform (contoh: `youtube`, `playstore`, `tiktok`). |
 | `source_url` | `TEXT` | Tautan langsung menuju konten/video sumber komentar. |
 | `author_name` | `VARCHAR(100)` | Nama anonim atau nama akun publik pengirim komentar. |
 | `text_content` | `TEXT` | Isi pesan atau ulasan opini publik. |
@@ -134,13 +135,15 @@ Menyimpan riwayat narasi kesimpulan eksekutif yang di-generate oleh AI untuk pim
 
 1. **Unique Index Username:** Kolom `users.username` diindeks secara unik untuk mempercepat proses verifikasi login OAuth2 (`WHERE username = :val`).
 2. **Foreign Key Indexing:** Relasi `ai_analysis.comment_id` ke `raw_comments.id` memastikan query `JOIN` untuk analitik agregasi berjalan instan.
-3. **JSONB GIN Indexing (Opsional):** Kolom `topic_tags` menggunakan tipe data asli `JSONB` yang mendukung pencarian topikal berbasis operator `@>` tanpa membebani CPU.
+3. **JSONB Indexing:** Kolom `topic_tags` menggunakan tipe data asli `JSONB` yang mendukung pencarian topikal berbasis operator `@>` tanpa membebani CPU.
 
 ---
 
-## 4. Mekanisme Migrasi Otomatis (Lifespan Auto-Sync)
+## 4. Konfigurasi Driver & Supabase Connection Pooler
 
-Sistem SI SORA menerapkan inisialisasi skema cerdas:
-- Ketika aplikasi FastAPI pertama kali dijalankan di lingkungan baru (misal: Supabase Cloud), modul `main.py` secara otomatis mengeksekusi `Base.metadata.create_all`.
-- Seluruh 6 tabel di atas akan langsung diciptakan di PostgreSQL secara otomatis tanpa mengharuskan admin menjalankan skrip SQL manual.
-- Akun Super Admin bawaan (`admin:admin123`) akan otomatis disuntikkan jika tabel `users` masih dalam kondisi kosong.
+Untuk menjamin kestabilan koneksi antara Vercel Serverless dan Supabase Cloud, konfigurasi pada `backend/app/db/session.py` menerapkan standar baku berikut:
+
+1. **Supavisor Transaction Pooler (Port 6543):** Digunakan untuk menghindari batas maksimum koneksi langsung PostgreSQL pada arsitektur serverless yang dapat men-scale banyak instance secara simultan.
+2. **Statement Cache Zeroing:** Mengatur `statement_cache_size = 0` dan `prepared_statement_cache_size = 0` karena driver asyncpg secara default menggunakan prepared statement yang tidak didukung dalam mode *Transaction Pooling* Supavisor.
+3. **Koneksi Resilien (`pool_pre_ping=True` & `pool_recycle=300`):** SQLAlchemy secara otomatis memvalidasi keaktifan koneksi sebelum mengeksekusi query, mencegah error *connection closed* saat kontainer serverless bangun dari keadaan idle.
+4. **SSL Context `CERT_NONE`:** Mengaktifkan enkripsi SSL tanpa validasi sertifikat CA lokal, sesuai kebutuhan koneksi remote Supabase cloud.

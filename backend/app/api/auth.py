@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 import jwt
@@ -49,12 +49,44 @@ async def require_admin_role(current_user: User = Depends(get_current_user)):
     return current_user
 
 @router.post("/login")
-async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)):
-    query = select(User).where(User.username == form_data.username)
+async def login(
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    username = None
+    password = None
+
+    content_type = request.headers.get("content-type", "")
+    if "application/json" in content_type:
+        try:
+            body = await request.json()
+            username = body.get("username")
+            password = body.get("password")
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Format JSON tidak valid."
+            )
+    else:
+        try:
+            form = await request.form()
+            username = form.get("username")
+            password = form.get("password")
+        except Exception:
+            pass
+
+    if not username or not password:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Nama pengguna dan kata sandi wajib diisi."
+        )
+
+    clean_username = str(username).strip()
+    query = select(User).where(User.username == clean_username)
     result = await db.execute(query)
     user = result.scalar_one_or_none()
     
-    if not user or not verify_password(form_data.password, user.password_hash):
+    if not user or not verify_password(str(password), user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Username atau sandi salah",

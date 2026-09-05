@@ -3,17 +3,17 @@
 **Nama Sistem:** SI SORA (Sistem Informasi Social Opinion Reaction Analytics)  
 **Tagline:** Mendengar dan memahami sentiment publik  
 **Institusi:** Universitas Terbuka (Perpustakaan Pusat & Hubungan Masyarakat)  
-**Versi Dokumen:** 6.0 (Production & Local Ready)  
-**Status:** Implementasi Selesai / Siap Deployment  
+**Versi Dokumen:** 6.1 (Production & Local Ready)  
+**Status:** Backend & DB Live / Frontend Ready  
 
 ---
 
 ## 1. Latar Belakang & Visi Produk
 
-Universitas Terbuka (UT) sebagai pelopor pendidikan tinggi terbuka dan jarak jauh di Indonesia memiliki ratusan ribu mahasiswa dan alumni yang aktif beropini di ranah digital. Opini, ulasan, keluhan, dan apresiasi tersebar luas di berbagai kanal publik seperti Google Play Store (aplikasi UT Mobile/ruang belajar), YouTube (konten edukasi & peresmian), X/Twitter, dan media sosial lainnya.
+Universitas Terbuka (UT) sebagai pelopor pendidikan tinggi terbuka dan jarak jauh di Indonesia memiliki ratusan ribu mahasiswa dan alumni yang aktif beropini di ranah digital. Opini, ulasan, keluhan, dan apresiasi tersebar luas di berbagai kanal publik seperti Google Play Store (aplikasi UT Mobile/ruang belajar), YouTube (konten edukasi & peresmian), TikTok, dan media sosial lainnya.
 
 **SI SORA** hadir sebagai platform *Social Listening & Intelligence* cerdas berbasis kecerdasan buatan (AI) yang dibangun dengan prinsip:
-1. **Zero Operational API Cost (100% Free Tier):** Seluruh infrastruktur (Database, Backend, Frontend, AI Inference, Otomasi) berjalan di atas kuota gratis tanpa mengorbankan keamanan atau performa.
+1. **Zero Operational API Cost (100% Free Tier):** Seluruh infrastruktur (Database Supabase, Backend Vercel Serverless, Frontend Vercel Edge CDN, AI Inference Groq) berjalan di atas kuota gratis tanpa syarat kartu kredit/debit.
 2. **Local-First & Production-Resilient:** Mendukung pengembangan berkelanjutan di komputer lokal tanpa mengganggu sistem publik (*dual-environment*).
 3. **Executive-Grade Insights:** Menyajikan analitik sentimen, emosi, dan ringkasan eksekutif untuk membantu pimpinan mengambil keputusan strategis yang cepat dan terukur.
 
@@ -30,7 +30,7 @@ Sistem ini dirancang untuk melayani dua kelompok pengguna:
 ## 3. Matriks Fitur Utama
 
 ### A. Core Intelligence & Analytics
-- **Multi-Platform Comment Scraper:** Penarikan data komentar publik dari Google Play Store dan YouTube tanpa API berbayar.
+- **Multi-Platform Comment Scraper:** Penarikan data komentar publik dari Google Play Store, YouTube, dan TikTok tanpa API berbayar.
 - **Groq AI Inference Engine:** Klasifikasi sentimen 3 arah (Positif, Netral, Negatif), deteksi emosi psikologis publik, ekstraksi topik diskusi, dan analisis penalaran (*reasoning*) menggunakan model openai/gpt-oss-20b.
 - **Dynamic Word Cloud Generator:** Pembuatan visualisasi awan kata berbasis frekuensi dan sentimen dengan palet warna resmi Universitas Terbuka.
 - **AI Executive Summary:** Pembuatan narasi kesimpulan opini masyarakat yang diperbarui secara otomatis atau pemicu manual.
@@ -44,13 +44,13 @@ Sistem ini dirancang untuk melayani dua kelompok pengguna:
 ### C. Keamanan & Akses
 - **Otentikasi Berbasis Token:** Proteksi JWT dengan algoritma HS256 dan hash sandi bcrypt.
 - **Role-Based Access Control (RBAC):** Pemisahan hak akses antara akun `ADMIN` dan `VIEWER`.
-- **CORS Protection:** Penguncian akses API lintas domain hanya untuk lingkungan lokal dan domain publik resmi.
+- **CORS Protection:** Penguncian akses API lintas domain hanya untuk lingkungan lokal dan domain publik Vercel resmi.
 
 ---
 
 ## 4. Kebutuhan Non-Fungsional (NFR)
 
-- **Biaya Operasional:** Rp 0 / bulan (Supabase Free Tier, Render Free Web Service, Netlify Free Tier, Cron-Job.org).
-- **Waktu Muat (Latency):** Dashboard awal harus tampil dalam waktu < 2 detik di jaringan standar.
-- **Ketahanan Server (Anti-Sleep):** Mengatasi limitasi *cold start* server gratis melalui mekanisme ping terjadwal setiap 10 menit.
+- **Biaya Operasional:** Rp 0 / bulan (Supabase Free Tier, Vercel Serverless & Edge Free Tier, Groq Free Tier — tanpa syarat kartu kredit).
+- **Waktu Muat (Latency):** Dashboard awal harus tampil dalam waktu < 2 detik di jaringan standar berkat global Edge CDN Vercel.
+- **Ketahanan Pooler Serverless:** Mengatasi timeout idle pooler Supabase melalui `pool_pre_ping=True` dan `pool_recycle=300`.
 - **Integritas Kode:** Mematuhi aturan *Zero-Comments Rule* secara mutlak pada seluruh lapisan kode sumber aplikasi.

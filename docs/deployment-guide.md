@@ -1,32 +1,31 @@
 # Panduan Rinci Persiapan & Eksekusi Deployment Free Tier — SI SORA
 
 **Nama Sistem:** SI SORA (Sistem Informasi Social Opinion Reaction Analytics)  
-**Arsitektur Cloud:** 100% Free Tier (Supabase + Render + Netlify + Cron-Job.org)  
-**Estimasi Biaya Operasional:** Rp 0 / Bulan  
+**Arsitektur Cloud:** 100% Free Tier (Supabase Cloud + Vercel Serverless + Vercel Edge CDN)  
+**Estimasi Biaya Operasional:** Rp 0 / Bulan (Tanpa Kartu Kredit / Debit)  
 **Target Pengguna:** Pimpinan & Tim Humas Universitas Terbuka  
-**Status:** Siap Eksekusi Deployment  
+**Status:** Backend & Database Sukses Live (Production Ready)  
 
 ---
 
 ## 1. Ikhtisar Arsitektur 100% Free Tier & Prinsip Dual-Environment
 
-Dokumen ini adalah pedoman baku persiapan dan eksekusi deployment sistem SI SORA ke ekosistem cloud publik gratis. Arsitektur ini dirancang dengan prinsip **Dual-Environment Resilience**:
-- **Di Komputer Lokal (Laptop):** Sistem tetap berjalan mandiri menggunakan database Docker PostgreSQL lokal (`localhost:5433`). Pengembang bebas menambahkan fitur, memodifikasi UI, dan melakukan pengujian tanpa membutuhkan koneksi internet atau memakan kuota cloud.
-- **Di Cloud (Production Publik):** Sistem berjalan otomatis menghubungkan Supabase (Database), Render (FastAPI Backend), Netlify (React Frontend), dan Cron-Job.org (Pemicu Otomatis & Anti-Sleep). Versi cloud hanya akan diperbarui saat pengembang melakukan `git push origin main`.
+SI SORA dirancang dengan prinsip **Dual-Environment Resilience**:
+- **Di Komputer Lokal (Laptop):** Sistem berjalan mandiri menggunakan database Docker PostgreSQL lokal (`localhost:5433`). Pengembang bebas menambahkan fitur, memodifikasi UI, dan melakukan pengujian tanpa kuota cloud atau internet.
+- **Di Cloud (Production Publik):** Sistem berjalan di infrastruktur serverless global Vercel dan database cloud Supabase tanpa memerlukan kartu kredit/debit sama sekali.
 
 ```
-                  ┌───────────────────────────────┐
-                  │         Cron-Job.org          │
-                  │  - Keep-Alive (Tiap 10 Menit) │
-                  │  - Daily Scrape (Pukul 06.00) │
-                  └───────────────┬───────────────┘
-                                  │ (HTTP Ping)
-                                  ▼
-┌──────────────────┐    ┌───────────────────┐    ┌──────────────────┐
-│ Netlify Frontend │───►│   Render Backend  │───►│ Supabase Database│
-│  (React 19 CDN)  │    │ (FastAPI Service) │    │ (PostgreSQL 15)  │
-│ sisora.netlify.app│    │ api.onrender.com  │    │ si-sora-db       │
-└──────────────────┘    └─────────┬─────────┘    └──────────────────┘
+                    ┌──────────────────────────────┐
+                    │    Public Data Sources       │
+                    │ (Play Store, YouTube, TikTok)│
+                    └──────────────┬───────────────┘
+                                   │ (HTTP / API Crawling)
+                                   ▼
+┌──────────────────┐    ┌───────────────────┐    ┌─────────────────────────┐
+│  Vercel Frontend │───►│   Vercel Backend  │───►│ Supabase Cloud Database │
+│  (React 19 SPA)  │    │ (FastAPI ASGI)    │    │ (PostgreSQL 15 Pooler)  │
+│  si-sora-fe...   │    │ si-sora.vercel.app│    │ Port 6543 (Supavisor)   │
+└──────────────────┘    └─────────┬─────────┘    └─────────────────────────┘
                                   │
                                   ▼
                         ┌───────────────────────┐
@@ -37,147 +36,189 @@ Dokumen ini adalah pedoman baku persiapan dan eksekusi deployment sistem SI SORA
 
 ---
 
-## 2. Tahap 1: Setup Database Supabase (`si-sora-db`)
+## 2. Mengapa Memilih Vercel + Supabase (Bukan Render / Zeabur)?
+
+1. **Render.com:** Mewajibkan verifikasi kartu kredit/debit internasional meskipun untuk Free Tier ($0), yang sering gagal pada kartu debit bank lokal Indonesia.
+2. **Zeabur:** Telah menghapus cluster bersama gratis (*shared cluster*) untuk akun baru dan beralih ke model BYOS (*Bring Your Own Server*) berbayar ($3 - $14/bulan).
+3. **Vercel + Supabase:** Menawarkan kombinasi serverless tercepat di dunia, serverless function Python 3.12, database PostgreSQL cloud tangguh, 100% gratis, dan **tanpa syarat input kartu kredit/debit**.
+
+---
+
+## 3. Tahap 1: Setup Database Supabase (`si-sora-db`)
 
 ### A. Data Kredensial Proyek
 - **Nama Proyek Supabase:** `si-sora-db`
-- **Kata Sandi Database:** `dbsisora040984!!` (sesuai catatan pada `docs/credential.txt`)
+- **Region:** Singapore (`ap-southeast-1`) — latensi terendah ke Indonesia.
+- **Kata Sandi Database:** Gunakan kata sandi database Anda yang tersimpan di `docs/credential.txt`.
 
-### B. Mengambil Connection String (URI)
-1. Buka dashboard proyek `si-sora-db` di [Supabase Dashboard](https://supabase.com/dashboard).
-2. Masuk ke menu **Project Settings** (ikon gerigi di kiri bawah) -> pilih tab **Database**.
-3. Gulir ke bagian **Connection string** -> pilih tab **URI**.
-4. Salin string koneksi tersebut. Format aslinya adalah:
+### B. Mengambil Connection String (Supavisor Pooler)
+Untuk aplikasi serverless seperti Vercel, **wajib** menggunakan Supavisor Connection Pooler (Mode Transaction pada port `6543`):
+1. Buka [Supabase Dashboard](https://supabase.com/dashboard) -> pilih proyek `si-sora-db`.
+2. Masuk ke menu **Project Settings** -> **Database**.
+3. Gulir ke bagian **Connection Pooling** (Port `6543` / Mode `Transaction`).
+4. Format URI untuk Python AsyncPG:
    ```
-   postgresql://postgres:[YOUR-PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres
+   postgresql+asyncpg://postgres.[PROJECT-REF]:[YOUR-PASSWORD]@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require
    ```
-5. Ganti `[YOUR-PASSWORD]` dengan sandi database Anda (`dbsisora040984!!`).
-6. **PENTING UNTUK PYTHON ASYNC:** Ubah awalan protokol dari `postgresql://` menjadi `postgresql+asyncpg://`:
-   ```
-   postgresql+asyncpg://postgres:dbsisora040984!!@db.[PROJECT-REF].supabase.co:5432/postgres
-   ```
-   *(String inilah yang nantinya akan dimasukkan ke dalam Environment Variable `DATABASE_URL` di Render).*
 
-### C. Pembuatan Tabel Otomatis (Auto-Migration)
-Anda **tidak perlu** mengimpor file SQL manual ke SQL Editor Supabase. Sistem backend SI SORA pada file `backend/app/main.py` telah dilengkapi fitur *lifespan auto-migration*. Begitu backend di Render pertama kali berhasil terhubung ke Supabase, seluruh 6 tabel dan akun Super Admin bawaan (`admin:admin123`) akan otomatis diciptakan.
+### C. Eksekusi Skema DDL Database
+Jalankan query DDL berikut di **SQL Editor Supabase** untuk membangun seluruh 6 tabel inti, indeks, dan menyinkronkan versi migrasi Alembic:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+CREATE TABLE IF NOT EXISTS raw_comments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    platform VARCHAR(50) NOT NULL,
+    source_url TEXT NOT NULL,
+    author_name VARCHAR(100),
+    text_content TEXT NOT NULL,
+    posted_at TIMESTAMPTZ DEFAULT NOW(),
+    status VARCHAR(20) DEFAULT 'UNPROCESSED'
+);
+
+CREATE INDEX IF NOT EXISTS ix_raw_comments_platform ON raw_comments (platform);
+CREATE INDEX IF NOT EXISTS ix_raw_comments_status ON raw_comments (status);
+
+CREATE TABLE IF NOT EXISTS system_settings (
+    setting_key VARCHAR(100) PRIMARY KEY,
+    setting_value TEXT,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS ai_analysis (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    comment_id UUID NOT NULL REFERENCES raw_comments(id) ON DELETE CASCADE,
+    sentiment VARCHAR(20) NOT NULL,
+    emotion VARCHAR(50),
+    topic_tags JSONB DEFAULT '[]'::jsonb,
+    ai_reasoning TEXT,
+    analyzed_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    username VARCHAR(50) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(20) DEFAULT 'VIEWER' NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS ix_users_username ON users (username);
+
+CREATE TABLE IF NOT EXISTS scraper_targets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    platform VARCHAR(20) NOT NULL,
+    target_id VARCHAR(255) NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    cron_time VARCHAR(20) DEFAULT '02:00',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS generated_insights (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    insight_text TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS alembic_version (
+    version_num VARCHAR(32) NOT NULL,
+    CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)
+);
+
+INSERT INTO alembic_version (version_num)
+VALUES ('18bcf41e6cda')
+ON CONFLICT (version_num) DO NOTHING;
+
+INSERT INTO users (id, username, password_hash, role, created_at)
+VALUES (
+    gen_random_uuid(),
+    'admin',
+    '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW',
+    'ADMIN',
+    NOW()
+)
+ON CONFLICT (username) DO NOTHING;
+```
 
 ---
 
-## 3. Tahap 2: Persiapan Repositori GitHub
+## 4. Tahap 2: Deployment Backend di Vercel
 
-1. Pastikan file kredensial lokal terlindungi dan tidak akan bocor ke publik. Periksa bahwa file `.gitignore` di root repositori memuat:
-   ```gitignore
-   .env
-   .env.*
-   !.env.example
-   ```
-2. Inisialisasi dan dorong kode ke repositori privat GitHub:
-   ```bash
-   git add .
-   git commit -m "feat(core): si-sora deployment readiness"
-   git branch -M main
-   git remote add origin https://github.com/[USERNAME-BOS]/si-sora.git
-   git push -u origin main
-   ```
+Backend FastAPI dideploy sebagai Vercel Serverless Function menggunakan Python 3.12:
 
----
-
-## 4. Tahap 3: Deployment Backend di Render.com
-
-1. Buka [Render Dashboard](https://dashboard.render.com) dan login menggunakan akun GitHub Anda.
-2. Klik tombol **New +** di kanan atas -> pilih **Web Service**.
-3. Pilih opsi **Build and deploy from a Git repository** -> hubungkan repositori `si-sora` Anda.
-4. Konfigurasikan parameter Web Service persis seperti tabel berikut:
-
-| Parameter Pengaturan | Nilai Konfigurasi |
-| :--- | :--- |
-| **Name** | `si-sora-api` (atau nama pilihan Anda) |
-| **Region** | Singapore (Southeast Asia) — paling dekat dengan Indonesia |
-| **Branch** | `main` |
-| **Root Directory** | `backend` |
-| **Runtime** | `Python 3` |
-| **Build Command** | `pip install -r requirements.txt` |
-| **Start Command** | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
-| **Instance Type** | `Free` (0.1 CPU, 512 MB RAM) |
-
-5. Gulir ke bagian **Environment Variables** -> klik tombol **Add Environment Variable**, lalu masukkan variabel-variabel wajib ini:
+### A. Konfigurasi Proyek Vercel Backend
+1. Login ke [Vercel Dashboard](https://vercel.com/dashboard).
+2. Klik **Add New...** -> **Project** -> Import repositori `pustaka-ut-penelitian/si-sora`.
+3. Atur konfigurasi dasar:
+   - **Project Name:** `si-sora`
+   - **Framework Preset:** `Other`
+   - **Root Directory:** `backend`
+4. Di bagian **Environment Variables**, tambahkan variabel-variabel berikut:
 
 | Key (Nama Variabel) | Value (Nilai) |
 | :--- | :--- |
-| `DATABASE_URL` | String URI Supabase Anda (`postgresql+asyncpg://postgres:dbsisora040984!!@db.[REF].supabase.co:5432/postgres`) |
-| `JWT_SECRET_KEY` | String acak pengaman token (contoh: `sisora_ut_super_secret_jwt_key_2026`) |
-| `GROQ_API_KEY` | Kunci API Groq Anda (salin dari file `backend/.env` lokal) |
-| `APIFY_API_TOKEN` | Token API Apify Anda (salin dari file `backend/.env` lokal) |
+| `DATABASE_URL` | URI Supabase Pooler (`postgresql+asyncpg://postgres.[PROJECT-REF]:[YOUR-PASSWORD]@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require`) |
+| `JWT_SECRET_KEY` | String rahasia acak untuk JWT (contoh: `sisora_ut_super_secret_jwt_key_2026`) |
+| `GROQ_API_KEY` | Kunci API Groq Anda (salin dari `docs/credential.txt`) |
+| `APIFY_API_TOKEN` | Token API Apify Anda |
 
-6. Klik **Create Web Service**. Render akan memulai proses instalasi dependensi dan menyalakan server.
-7. Setelah status berubah menjadi **Live**, salin URL publik backend Anda (contoh: `https://si-sora-api.onrender.com`).
-8. Verifikasi kesehatan backend dengan membuka: `https://si-sora-api.onrender.com/health`. Jika muncul respons `{"status":"ok","database":"connected"}`, backend Anda telah sukses 100%!
+5. Klik **Deploy**. Vercel akan menginstal `requirements.txt` dan mem-build fungsi Python dalam ~35-45 detik.
+
+### B. Hasil Endpoint Live
+- **Root URL:** `https://si-sora.vercel.app/` -> Mengembalikan `{"status":"ok","service":"si_sora_api","version":"1.0.0"}`
+- **Health Check:** `https://si-sora.vercel.app/api/health` -> Mengembalikan `{"status":"ok","service":"ut_sentiment_api","database":"connected"}`
 
 ---
 
-## 5. Tahap 4: Deployment Frontend di Netlify
+## 5. Tahap 3: Deployment Frontend di Vercel
 
-1. Buka [Netlify Dashboard](https://app.netlify.com) dan login menggunakan akun GitHub Anda.
-2. Klik tombol **Add new site** -> pilih **Import an existing project**.
-3. Pilih penyedia **GitHub** -> pilih repositori `si-sora`.
-4. Konfigurasikan parameter build persis seperti berikut:
+Frontend React 19 Vite dideploy sebagai Vercel Project kedua yang terhubung ke backend:
 
-| Parameter Pengaturan | Nilai Konfigurasi |
+### A. Konfigurasi Proyek Vercel Frontend
+1. Di [Vercel Dashboard](https://vercel.com/dashboard), klik **Add New...** -> **Project**.
+2. Pilih kembali repositori `pustaka-ut-penelitian/si-sora` -> klik **Import**.
+3. Atur konfigurasi:
+   - **Project Name:** `si-sora-frontend` (atau nama pilihan Anda)
+   - **Framework Preset:** `Vite`
+   - **Root Directory:** Klik **Edit** -> pilih folder `frontend` -> klik **Continue**.
+4. Di bagian **Environment Variables**, tambahkan:
+
+| Key (Nama Variabel) | Value (Nilai) |
 | :--- | :--- |
-| **Branch to deploy** | `main` |
-| **Base directory** | `frontend` |
-| **Build command** | `npm run build` |
-| **Publish directory** | `frontend/dist` |
+| `VITE_API_URL` | `https://si-sora.vercel.app` *(tanpa garis miring di ujung)* |
 
-5. Klik menu **Environment variables** pada halaman konfigurasi tersebut -> tambahkan variabel:
-   - **Key:** `VITE_API_URL`
-   - **Value:** URL publik Render Anda (contoh: `https://si-sora-api.onrender.com` — *tanpa garis miring di akhir*).
-6. Klik tombol **Deploy si-sora**.
-7. Netlify akan menjalankan Vite bundler selama ~1-2 menit. Setelah selesai, Netlify akan memberikan URL publik (contoh: `https://si-sora.netlify.app`).
-8. *(Opsional)* Di menu **Site configuration** -> **Domain management**, Anda dapat mengubah subdomain Netlify menjadi nama yang lebih profesional (misal: `si-sora-ut.netlify.app`).
+5. Klik **Deploy**. Vercel akan menjalankan `npm run build` dan mengunggah bundel React dalam ~1 menit.
 
-> [!NOTE]
-> File `frontend/public/_redirects` yang berisi `/* /index.html 200` sudah tersedia di dalam repositori. Netlify akan secara otomatis menggunakannya sehingga routing React SPA tidak akan pernah mengalami error 404 saat halaman di-refresh.
-
----
-
-## 6. Tahap 5: Otomasi & Anti-Sleep di Cron-Job.org
-
-Server Render Free Tier memiliki kebijakan otomatis tidur (*sleep / spin down*) jika tidak menerima lalu lintas web selama 15 menit. Untuk membuat server selalu aktif (*always awake*) dan melakukan penarikan data secara berkala, kita memanfaatkan layanan gratis [Cron-Job.org](https://cron-job.org).
-
-1. Buat akun gratis di [Cron-Job.org](https://cron-job.org) dan verifikasi email Anda.
-2. Masuk ke menu **Cronjobs** -> klik tombol **Create Cronjob**.
-
-### Job 1 — Anti-Sleep (Keep-Alive Backend)
-- **Title:** `SI SORA Backend Keep-Alive`
-- **URL:** `https://si-sora-api.onrender.com/health`
-- **Execution schedule:** Pilih *User-defined* -> Jalankan setiap **10 menit** (`*/10 * * * *`).
-- **Request Method:** `GET`
-- Klik **Create**. Job ini akan mengirimkan sinyal ping ringan setiap 10 menit sehingga server Render tidak akan pernah tidur.
-
-### Job 2 — Pemicu Penarikan Data Rutin (Daily Auto-Scraping)
-- **Title:** `SI SORA Daily Auto-Scraping`
-- **URL:** `https://si-sora-api.onrender.com/api/jobs/trigger-scrape`
-- **Execution schedule:** Setiap hari pada pukul **06:00 WIB** (atau 23:00 UTC).
-- **Request Method:** `POST`
-- Klik **Create**. Job ini memastikan data opini publik terbaru sudah ditarik dan dianalisis sebelum pimpinan membuka dashboard di pagi hari.
+### B. Proteksi SPA Routing (Client-Side Fallback)
+File `frontend/vercel.json` telah disediakan dengan aturan rewrite:
+```json
+{
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
+```
+Aturan ini menjamin pengguna tidak akan pernah mengalami error **404 Not Found** ketika melakukan reload (F5) pada halaman `/login`, `/dashboard`, `/data-explorer`, atau `/settings`.
 
 ---
 
-## 7. Prosedur Alur Kerja Dual-Environment Pasca-Deploy
+## 6. Prosedur Pemeliharaan & Alur Kerja Dual-Environment
 
-Setelah seluruh ekosistem cloud di atas berjalan, alur kerja harian Bos tetap berada di komputer lokal:
+Setelah sistem live, alur kerja harian pengembang tetap aman dan mandiri di laptop lokal:
 
-1. **Pengembangan Fitur Baru di Komputer Lokal:**
-   - Nyalakan Docker Desktop (`docker-compose up -d`).
-   - Nyalakan backend lokal: `uvicorn app.main:app --port 8001 --reload`
-   - Nyalakan frontend lokal: `npm run dev`
-   - Buka `http://localhost:5173`. Semua eksperimen, penambahan fitur, dan perbaikan tampilan dilakukan di sini tanpa takut mengganggu versi publik.
-2. **Sinkronisasi ke Versi Cloud (Production):**
-   - Hanya saat sebuah fitur di lokal sudah teruji dan stabil, lakukan commit dan push:
+1. **Pengembangan Fitur Lokal:**
+   - Database lokal: Docker Compose (`docker-compose up -d` di port 5433).
+   - Backend lokal: `uvicorn app.main:app --port 8001 --reload`
+   - Frontend lokal: `npm run dev` di `http://localhost:5173`
+2. **Sinkronisasi ke Production (Cloud):**
+   - Lakukan commit dan push ke GitHub:
      ```bash
      git add .
-     git commit -m "feat: implementasi fitur baru"
+     git commit -m "feat(scope): deskripsi pembaruan fitur"
      git push origin main
      ```
-   - Render dan Netlify akan secara otomatis mendeteksi push tersebut, mengompilasi ulang kode, dan memperbarui versi publik dalam waktu ~2 menit tanpa intervensi manual!
+   - Vercel akan otomatis mendeteksi perubahan pada branch `main` dan memperbarui backend serta frontend dalam hitungan detik tanpa *downtime*.
