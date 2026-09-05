@@ -248,9 +248,7 @@ export function Dashboard() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <div className="flex items-center gap-4 w-full sm:w-auto">
-              <div className="bg-[#003f7a] text-white p-2.5 font-bold rounded-[1rem] shadow-sm flex items-center justify-center shrink-0">
-                <img src={logoImage} alt="Logo SI SORA" className="h-6 md:h-8" />
-              </div>
+              <img src={logoImage} alt="Logo SI SORA" className="h-10 md:h-12 object-contain shrink-0" />
               <img src={utLogo} alt="Logo Universitas Terbuka" className="h-9 object-contain md:hidden" />
             </div>
             <h1 className="text-2xl md:text-3xl font-headline font-extrabold text-[#1a1c1d] tracking-tight">
