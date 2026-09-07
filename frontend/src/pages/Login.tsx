@@ -127,27 +127,24 @@ export function Login() {
           </svg>
         </div>
 
-        <div className="relative z-10 flex items-center gap-4">
-          <div className="relative flex items-center gap-4 py-2 px-3">
-            <div className="absolute inset-0 bg-white/[0.07] rounded-2xl blur-md pointer-events-none"></div>
-            <img 
-              src={logoImage} 
-              alt="Logo SI SORA" 
-              className="relative z-10 h-11 xl:h-12 w-auto object-contain transition-transform duration-300 hover:scale-105"
-              style={{
-                filter: "drop-shadow(0 0 1.5px rgba(255, 255, 255, 0.95)) drop-shadow(0 0 12px rgba(254, 203, 0, 0.5))"
-              }}
-            />
-            <div className="relative z-10 h-8 w-[2px] bg-[#fecb00]/40 rounded-full"></div>
-            <img 
-              src={utLogo} 
-              alt="Logo Universitas Terbuka" 
-              className="relative z-10 h-10 xl:h-11 w-auto object-contain transition-transform duration-300 hover:scale-105"
-              style={{
-                filter: "drop-shadow(0 0 1.5px rgba(255, 255, 255, 0.95)) drop-shadow(0 0 12px rgba(254, 203, 0, 0.5))"
-              }}
-            />
-          </div>
+        <div className="relative z-10 flex items-center gap-6 xl:gap-8">
+          <img 
+            src={logoImage} 
+            alt="Logo SI SORA" 
+            className="h-20 xl:h-24 w-auto object-contain transition-transform duration-300 hover:scale-105"
+            style={{
+              filter: "drop-shadow(0 0 2px rgba(255, 255, 255, 0.9)) drop-shadow(0 0 16px rgba(254, 203, 0, 0.6)) drop-shadow(0 0 32px rgba(254, 203, 0, 0.3))"
+            }}
+          />
+          <div className="h-16 xl:h-20 w-[2.5px] bg-[#fecb00]/60 rounded-full"></div>
+          <img 
+            src={utLogo} 
+            alt="Logo Universitas Terbuka" 
+            className="h-18 xl:h-22 w-auto object-contain transition-transform duration-300 hover:scale-105"
+            style={{
+              filter: "drop-shadow(0 0 2px rgba(255, 255, 255, 0.9)) drop-shadow(0 0 16px rgba(254, 203, 0, 0.6)) drop-shadow(0 0 32px rgba(254, 203, 0, 0.3))"
+            }}
+          />
         </div>
 
         <div className="relative z-10 flex flex-col gap-6 my-auto py-10">

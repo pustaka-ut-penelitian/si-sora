@@ -37,6 +37,12 @@
   - Sinkronisasi `scraper_targets`: 4 target media sosial.
   - Sinkronisasi `users`: 2 akun pengguna (admin & operator).
   - **Hasil Verifikasi Row Count Supabase Cloud:** 100% identik dengan PostgreSQL lokal.
+- **Penyempurnaan Proporsi Visual Header Login Desktop Tanpa Kapsul (`Login.tsx`):**
+  - Menghilangkan total kapsul glass (`border`, `bg-white`, dan `backdrop-blur` kontainer dihapus), menjaga tampilan bersih, polos, dan murni tanpa bingkai.
+  - Memperbesar ukuran logo SI SORA secara maksimal menjadi **`h-20 xl:h-24` (80px di laptop `lg`, 96px di monitor desktop `xl`)**.
+  - Memperbesar logo Universitas Terbuka secara proporsional menjadi **`h-18 xl:h-22` (72px di laptop `lg`, 88px di monitor desktop `xl`)**.
+  - Memperpanjang garis divider vertikal emas menjadi **`h-16 xl:h-20`** dengan ketebalan `w-[2.5px]` dan warna `bg-[#fecb00]/60`.
+  - Menambahkan efek *soft golden glow* berlapis pada kedua logo (`drop-shadow(0 0 16px rgba(254, 203, 0, 0.6)) drop-shadow(0 0 32px rgba(254, 203, 0, 0.3))`) sehingga logo memancar indah dan kontras tajam di atas latar belakang biru gelap tanpa memerlukan bingkai pembungkus.
 
 ### Versi 6.14 (September 2026) — Overhaul Fundamental Mesin Local NLP: Lexicon Disambiguation, Skip-Gram Negation Engine 4-Token, Morphology Confix Stripping, Eksekusi Audit Survei Otomatis & Sanitasi UI Murni
 - **Pembersihan Total UI & Konsistensi Tampilan (`DataExplorer.tsx`):**
