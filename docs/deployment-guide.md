@@ -121,6 +121,41 @@ CREATE TABLE IF NOT EXISTS generated_insights (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS scraper_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    platform VARCHAR(50) NOT NULL,
+    target_id VARCHAR(255) NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    comments_count INTEGER DEFAULT 0,
+    execution_time_sec FLOAT DEFAULT 0.0,
+    error_message TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS generated_wordclouds (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    snapshot_id UUID NOT NULL,
+    sentiment VARCHAR(20) NOT NULL,
+    layout VARCHAR(20) DEFAULT 'desktop' NOT NULL,
+    image_data TEXT NOT NULL,
+    top_words JSONB DEFAULT '{}'::jsonb,
+    total_comments INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    created_by VARCHAR(100) DEFAULT 'system'
+);
+
+CREATE INDEX IF NOT EXISTS idx_raw_comments_posted_at_desc ON raw_comments (posted_at DESC);
+CREATE INDEX IF NOT EXISTS idx_raw_comments_platform ON raw_comments (platform);
+CREATE INDEX IF NOT EXISTS idx_raw_comments_status ON raw_comments (status);
+CREATE INDEX IF NOT EXISTS idx_ai_analysis_comment_id ON ai_analysis (comment_id);
+CREATE INDEX IF NOT EXISTS idx_ai_analysis_sentiment ON ai_analysis (sentiment);
+CREATE INDEX IF NOT EXISTS idx_ai_analysis_emotion ON ai_analysis (emotion);
+CREATE INDEX IF NOT EXISTS idx_ai_analysis_topic_tags ON ai_analysis USING gin (topic_tags);
+CREATE INDEX IF NOT EXISTS ix_users_username ON users (username);
+CREATE INDEX IF NOT EXISTS idx_scraper_logs_created_at_desc ON scraper_logs (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_scraper_logs_platform ON scraper_logs (platform);
+CREATE INDEX IF NOT EXISTS idx_generated_wordclouds_snapshot_id ON generated_wordclouds (snapshot_id);
+
 CREATE TABLE IF NOT EXISTS alembic_version (
     version_num VARCHAR(32) NOT NULL,
     CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)
@@ -141,6 +176,9 @@ VALUES (
 ON CONFLICT (username) DO NOTHING;
 ```
 
+### D. Sinkronisasi Data Otomatis ke Supabase Production
+Seluruh data lokal (6.420 data komentar, 6.420 data analisis sentimen, 32 snapshot word cloud, 19 insights, 9 scraper logs, 4 targets, dan 2 akun pengguna) telah disinkronkan secara atomik ke Supabase Cloud menggunakan pipeline migrasi data `sync_local_to_supabase.py`. Database production saat ini telah 100% identik dengan database lokal.
+
 ---
 
 ## 4. Tahap 2: Deployment Backend di Vercel
@@ -151,7 +189,7 @@ Backend FastAPI dideploy sebagai Vercel Serverless Function menggunakan Python 3
 1. Login ke [Vercel Dashboard](https://vercel.com/dashboard).
 2. Klik **Add New...** -> **Project** -> Import repositori `pustaka-ut-penelitian/si-sora`.
 3. Atur konfigurasi dasar:
-   - **Project Name:** `si-sora`
+   - **Project Name:** `si-sora-api`
    - **Framework Preset:** `Other`
    - **Root Directory:** `backend`
 4. Di bagian **Environment Variables**, tambahkan variabel-variabel berikut:
@@ -166,8 +204,8 @@ Backend FastAPI dideploy sebagai Vercel Serverless Function menggunakan Python 3
 5. Klik **Deploy**. Vercel akan menginstal `requirements.txt` dan mem-build fungsi Python dalam ~35-45 detik.
 
 ### B. Hasil Endpoint Live
-- **Root URL:** `https://si-sora.vercel.app/` -> Mengembalikan `{"status":"ok","service":"si_sora_api","version":"1.0.0"}`
-- **Health Check:** `https://si-sora.vercel.app/api/health` -> Mengembalikan `{"status":"ok","service":"ut_sentiment_api","database":"connected"}`
+- **Root URL:** `https://si-sora-api.vercel.app/` -> Mengembalikan `{"status":"ok","service":"si_sora_api","version":"1.0.0"}`
+- **Health Check:** `https://si-sora-api.vercel.app/health` -> Mengembalikan `{"status":"ok","service":"ut_sentiment_api","database":"connected"}`
 
 ---
 
@@ -179,14 +217,14 @@ Frontend React 19 Vite dideploy sebagai Vercel Project kedua yang terhubung ke b
 1. Di [Vercel Dashboard](https://vercel.com/dashboard), klik **Add New...** -> **Project**.
 2. Pilih kembali repositori `pustaka-ut-penelitian/si-sora` -> klik **Import**.
 3. Atur konfigurasi:
-   - **Project Name:** `si-sora-frontend` (atau nama pilihan Anda)
+   - **Project Name:** `si-sora` (Aplikasi Utama)
    - **Framework Preset:** `Vite`
    - **Root Directory:** Klik **Edit** -> pilih folder `frontend` -> klik **Continue**.
 4. Di bagian **Environment Variables**, tambahkan:
 
 | Key (Nama Variabel) | Value (Nilai) |
 | :--- | :--- |
-| `VITE_API_URL` | `https://si-sora.vercel.app` *(tanpa garis miring di ujung)* |
+| `VITE_API_URL` | `https://si-sora-api.vercel.app` *(tanpa garis miring di ujung)* |
 
 5. Klik **Deploy**. Vercel akan menjalankan `npm run build` dan mengunggah bundel React dalam ~1 menit.
 

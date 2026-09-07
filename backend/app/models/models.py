@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, Text, DateTime, ForeignKey, text, Boolean
+from sqlalchemy import Column, String, Text, DateTime, ForeignKey, text, Boolean, Integer, Float
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
@@ -63,4 +63,30 @@ class GeneratedInsight(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     insight_text = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+class ScraperLog(Base):
+    __tablename__ = "scraper_logs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    platform = Column(String(50), nullable=False)
+    target_id = Column(String(255), nullable=False)
+    status = Column(String(20), nullable=False)
+    comments_count = Column(Integer, default=0)
+    execution_time_sec = Column(Float, default=0.0)
+    error_message = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+class GeneratedWordCloud(Base):
+    __tablename__ = "generated_wordclouds"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    snapshot_id = Column(UUID(as_uuid=True), default=uuid.uuid4, index=True, nullable=False)
+    sentiment = Column(String(20), nullable=False)
+    layout = Column(String(20), default="desktop", nullable=False)
+    image_data = Column(Text, nullable=False)
+    top_words = Column(JSONB, default=dict)
+    total_comments = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_by = Column(String(100), default="system")
+
 

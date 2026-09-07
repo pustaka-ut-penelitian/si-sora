@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 import jwt
@@ -7,7 +8,12 @@ from jwt.exceptions import ExpiredSignatureError, PyJWTError
 
 from app.db.session import get_db
 from app.models.models import User
-from app.core.security import verify_password, create_access_token, SECRET_KEY, ALGORITHM
+from app.core.security import verify_password, get_password_hash, create_access_token, SECRET_KEY, ALGORITHM
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(..., min_length=1)
+    new_password: str = Field(..., min_length=8)
+    confirm_password: str = Field(..., min_length=8)
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
@@ -108,4 +114,36 @@ async def get_me(current_user: User = Depends(get_current_user)):
             "role": current_user.role,
             "created_at": current_user.created_at
         }
+    }
+
+@router.post("/change-password")
+async def change_password(
+    data: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    if not verify_password(data.current_password, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Kata sandi saat ini yang Anda masukkan tidak sesuai."
+        )
+    
+    if data.new_password != data.confirm_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Konfirmasi kata sandi baru tidak cocok."
+        )
+    
+    if data.new_password == data.current_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Kata sandi baru tidak boleh sama dengan kata sandi saat ini."
+        )
+    
+    current_user.password_hash = get_password_hash(data.new_password)
+    await db.commit()
+    
+    return {
+        "status": "success",
+        "message": "Kata sandi akun Anda berhasil diperbarui."
     }

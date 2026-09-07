@@ -21,7 +21,7 @@ SI SORA dirancang menggunakan pola decoupled monorepo dengan pemisahan tegas ant
 ┌──────────────────┐    ┌──────────────────────────────┐
 │ Vercel Frontend  │───►│       FastAPI Backend        │
 │ (React 19 Vite)  │    │     (Python 3.12 ASGI)       │
-│ si-sora-frontend │    │      si-sora.vercel.app      │
+│ si-sora.vercel   │    │    si-sora-api.vercel.app    │
 └──────────────────┘    └───────┬──────────────┬───────┘
                                 │              │
                (Analysis Request)│              │ (Read / Write via Pooler)
@@ -100,5 +100,6 @@ Riset Sentiment Analysis/
 - **Client-Side Routing & SPA Fallback:** Menggunakan `react-router-dom` dengan komponen pembungkus `ProtectedRoute`. Dilengkapi file `frontend/vercel.json` (`/* -> /index.html`) untuk menjamin navigasi halaman tidak pernah mengalami error 404 saat di-reload.
 
 ### C. Artificial Intelligence & Analytics Layer
-- **Groq Cloud API:** Mengirimkan prompt analisis terstruktur ke model `openai/gpt-oss-20b` untuk mengklasifikasikan sentimen (Positif, Negatif, Netral), mendeteksi skor emosi dominan, serta mengekstraksi topik utama pembicaraan secara hemat kuota (batching 10 item).
-- **Dynamic Word Cloud Engine:** Mengolah frekuensi token kata menggunakan library `WordCloud` dan `Pillow`, lalu menghasilkan representasi visual berbasis Base64 PNG transparan dengan pewarnaan dinamis sesuai proporsi sentimen.
+- **Groq Cloud API:** Mengirimkan prompt analisis terstruktur ke model LLM untuk mengklasifikasikan sentimen (Positif, Negatif, Netral), mendeteksi skor emosi dominan, serta mengekstraksi topik utama pembicaraan secara hemat kuota (batching 10 item).
+- **Hybrid Hierarchical Synthesis (Rangkuman Sentimen Publik):** Menggabungkan kalkulasi metrik deterministik database (0% halusinasi kuantitatif) dengan ekstraksi suara publik nyata (*exemplar verbatim sampling*: 3 positif, 3 negatif, 2 netral) untuk memproduksi narasi wawasan eksekutif pimpinan berstandar institusi akademik tinggi lengkap dengan bukti kutipan dan rekomendasi taktis.
+- **Dynamic Word Cloud Engine:** Mengolah frekuensi kosakata NLP cerdas (180–200 kata) menggunakan library `WordCloud` dan `Pillow`, lalu menyimpan snapshot statis persisten ke database untuk penyajian visual instan 0ms pada kanvas penuh tanpa ruang kosong.

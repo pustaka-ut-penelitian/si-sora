@@ -12,9 +12,21 @@ MODEL_NAME = "openai/gpt-oss-20b"
 
 client = AsyncGroq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
-SYSTEM_PROMPT_BATCH = """Anda adalah ahli analisis sentimen bahasa Indonesia.
-Tugas Anda menganalisis daftar komentar sosial media.
-Pahami konteks, sarkasme, dan bahasa gaul Indonesia.
+SYSTEM_PROMPT_BATCH = """Anda adalah ahli analisis sentimen dan opini publik bahasa Indonesia untuk ekosistem Universitas Terbuka (UT).
+Tugas Anda menganalisis daftar komentar sosial media secara akurat, kontekstual, dan memahami bahasa gaul, singkatan, serta sarkasme.
+
+Panduan Topik Utama UT untuk topic_tags:
+Utamakan mengelompokkan topik ke dalam 1 sampai 2 klaster payung standar berikut jika relevan, agar data opini teragregasi dengan baik:
+- "Bahan Ajar & Modul" (terkait buku materi pokok, modul cetak, digital, pengiriman)
+- "Biaya Pendidikan" (terkait SPP, pembayaran, tagihan LIP, biaya terjangkau atau mahal, beasiswa)
+- "Sistem & Aplikasi" (terkait website UT, SIA, LMS elearning, Silayar, server down, error, login, aplikasi mobile)
+- "Ujian & Penilaian" (terkait ujian online UO, THE, tugas tuton, nilai akhir, IPK, kelulusan)
+- "Registrasi & Admisi" (terkait pendaftaran mahasiswa baru, validasi berkas, pemilihan prodi)
+- "Layanan Akademik" (terkait respon admin UPBJJ atau SALUT, CS Halo UT, pelayanan dosen atau tutor)
+- "Fleksibilitas Kuliah" (terkait kuliah sambil kerja, waktu mandiri, kuliah online jarak jauh)
+- "Kualitas Pendidikan" (terkait reputasi kampus PTN-BH, akreditasi, kualitas pembelajaran)
+
+Jika komentar membahas topik spesifik di luar daftar di atas, Anda bebas membuat frasa 2 kata baru yang padat dan bermakna jelas (contoh: 'Kegiatan Mahasiswa', 'Info Wisuda'). JANGAN gunakan kata tunggal ambigu seperti 'ut' atau 'dan'. JANGAN gunakan label generik 'Umum'.
 
 Output Anda HARUS berupa JSON object murni dengan kunci "results" yang berisi array hasil, berstruktur berikut:
 {
@@ -23,12 +35,11 @@ Output Anda HARUS berupa JSON object murni dengan kunci "results" yang berisi ar
       "id": "indeks_atau_id_string",
       "sentiment": "POSITIF atau NEGATIF atau NETRAL",
       "emotion": "emosi dominan (contoh: senang, bangga, puas, marah, kecewa, khawatir, netral)",
-      "topic_tags": ["frasa 2 kata berkonteks, contoh: 'biaya terjangkau', 'sistem error', 'kuliah fleksibel', 'pelayanan ramah', 'modul lambat', 'jadwal bentrok'"],
-      "ai_reasoning": "alasan analisis max 2 kalimat"
+      "topic_tags": ["topik_standar_atau_frasa_ringkas"],
+      "ai_reasoning": "alasan analisis ringkas 1-2 kalimat"
     }
   ]
 }
-Catatan untuk topic_tags: Ekstrak 1 sampai 3 frasa ringkas 2 kata (Aspek + Sifat/Kondisi) agar memiliki konteks yang jelas. JANGAN gunakan kata tunggal yang ambigu seperti 'biaya' atau 'ujian' saja.
 JANGAN tambahkan teks apapun selain JSON murni.
 """
 
@@ -85,39 +96,49 @@ async def generate_executive_summary(stats_json: dict) -> str:
     if not client:
         return "Insight tidak tersedia (API Key tidak dikonfigurasi)."
 
-    prompt = f"""Anda adalah AI Data Analyst Eksekutif di Universitas Terbuka. 
-Diberikan data statistik analisis sentimen terkini, buatlah Laporan Wawasan Eksekutif yang mendalam, terstruktur, dan sangat bermanfaat bagi Pimpinan.
+    prompt = f"""Anda adalah Senior Executive AI Analyst & Kebijakan Publik di Universitas Terbuka (UT).
+Tugas Anda adalah menyusun "Laporan Wawasan Sentimen Publik Eksekutif" yang presisi, berbobot, berbasis bukti nyata (evidence-based), dan bernilai strategis tinggi bagi Pimpinan Universitas.
 
-WAJIB GUNAKAN FORMAT MARKDOWN (MD) BERIKUT UNTUK OUTPUT ANDA:
+Gunakan metode HYBRID HIERARCHICAL ANALYSIS:
+1. Setiap isu di data masukan telah dipasangkan secara deterministik antara topik makro, frekuensi data, dan kutipan riil mahasiswa (exemplar).
+2. Analisis setiap topik tersebut secara mendalam: jelaskan tidak hanya apa yang terjadi, tetapi mengapa hal itu dirasakan mahasiswa dan apa implikasi operasionalnya bagi UT.
+3. DILARANG membuat tabel markdown menggunakan karakter pipe (|). Gunakan format daftar butir (bullet lists), teks tebal, dan blockquote (>) untuk mengutip opini.
+
+WAJIB GUNAKAN STRUKTUR MARKDOWN BERIKUT (Format Heading 3):
 
 ### Ringkasan Eksekutif
-[1 paragraf ringkasan singkat tentang situasi sentimen publik secara keseluruhan dari rentang waktu yang tersedia]
+[1 paragraf wawasan naratif tajam mengenai iklim persepsi publik terkini dan momentum institusi]
 
-### Metrik Utama
-- **Total Data Diproses:** [Jumlah total data] opini publik.
-- **Distribusi Sentimen:** [Persentase Positif] Positif, [Persentase Negatif] Negatif, [Persentase Netral] Netral.
-- **Sentimen Dominan:** [Sebutkan sentimen dominan dan implikasinya secara singkat].
+### Metrik Kunci & Distribusi
+- **Total Opini Dianalisis:** [Total data] opini publik lintas saluran.
+- **Keseimbangan Sentimen:** [Persentase Positif] Positif | [Persentase Negatif] Negatif | [Persentase Netral] Netral.
+- **Sentimen Dominan:** [Sentimen dominan dan tafsiran strategisnya].
 
-### Sorotan Topik Ekstrem
-- **Faktor Kepuasan Tertinggi:** [Sebutkan apa yang paling diapresiasi berdasarkan data topik positif, dan mengapa]
-- **Faktor Keluhan Utama:** [Sebutkan topik negatif yang paling mendesak dan apa masalahnya]
+### Analisis Faktor Pengungkit Kepuasan Publik
+[Bedah setiap topik kepuasan dari top_positive_issues secara berurutan. Paparkan mengapa aspek tersebut memicu kepuasan mahasiswa, dan cantumkan bukti kutipan riil mahasiswa dari exemplar.quote menggunakan format blockquote (> "kutipan...")]
 
-### Rekomendasi Strategis
-1. [Rekomendasi 1 yang paling krusial, spesifik, dan dapat ditindaklanjuti (actionable) berdasarkan data]
-2. [Rekomendasi 2]
-3. [Rekomendasi 3]
+### Analisis Titik Kritis & Isu Mendesak
+[Bedah setiap isu keluhan dari top_negative_issues secara berurutan. Paparkan akar masalah dan dampak operasionalnya bagi UT, dan cantumkan bukti kutipan riil mahasiswa dari exemplar.quote menggunakan format blockquote (> "kutipan...")]
 
-Gunakan bahasa Indonesia yang profesional, tajam, elegan dan lugas. JANGAN gunakan tag HTML. HANYA gunakan format markdown standar (Heading 3, Bold, List).
-JANGAN halusinasi data, JANGAN merekomendasikan hal yang tidak didukung oleh data. Gunakan HANYA data yang diberikan di bawah ini. Jika ada informasi yang kosong, nyatakan belum cukup data.
+### Rekomendasi Strategis Pimpinan (Actionable Directives)
+1. **[Nama Aksi 1 - Bidang Akademik/Layanan]:** [Rekomendasi taktis konkret berbasis data]
+2. **[Nama Aksi 2 - Bidang Infrastruktur/Sistem]:** [Rekomendasi taktis konkret berbasis data]
+3. **[Nama Aksi 3 - Bidang Komunikasi/Finansial]:** [Rekomendasi taktis konkret berbasis data]
 
-Data statistik:
-{json.dumps(stats_json, indent=2)}
+ATURAN KETAT:
+- Gunakan bahasa Indonesia baku, lugas, elegan, dan profesional setingkat laporan dewan pimpinan rektorat.
+- JANGAN gunakan tag HTML.
+- JANGAN membuat tabel markdown dengan karakter pipe (|).
+- JANGAN halusinasi data statistik atau membuat kutipan fiktif. Gunakan HANYA data dan kutipan yang disediakan di bawah ini.
+
+DATA ANALITIK & PASANGAN ISU BUKTI RIIL:
+{json.dumps(stats_json, indent=2, ensure_ascii=False)}
 """
 
     try:
         response = await client.chat.completions.create(
             messages=[
-                {"role": "system", "content": "Anda adalah Executive Analyst spesialis data sosial media."},
+                {"role": "system", "content": "Anda adalah Senior Executive AI Analyst spesialis analisis persepsi publik akademik."},
                 {"role": "user", "content": prompt}
             ],
             model=MODEL_NAME,

@@ -31,7 +31,7 @@ class ApifyScraper(BaseScraper):
             posted_time = datetime.fromisoformat(posted_str.replace('Z', '+00:00')) if posted_str else datetime.now()
             
             extracted.append({
-                "platform": "Instagram (Apify)",
+                "platform": "Instagram",
                 "source_url": target_id,
                 "author_name": item.get("ownerUsername", "anon"),
                 "text_content": item.get("text", ""),

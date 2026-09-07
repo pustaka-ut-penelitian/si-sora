@@ -56,6 +56,16 @@ erDiagram
         text insight_text
         timestamptz created_at
     }
+    scraper_logs {
+        uuid id PK
+        string platform
+        string target_id
+        string status
+        int comments_count
+        float execution_time_sec
+        text error_message
+        timestamptz created_at
+    }
 ```
 
 ---
@@ -68,8 +78,8 @@ Menyimpan komentar mentah yang ditarik oleh modul *crawler/scraper* dari berbaga
 | Kolom | Tipe Data | Keterangan |
 | :--- | :--- | :--- |
 | `id` | `UUID` (Primary Key) | Pengenal unik komentar berbasis `uuid.uuid4`. |
-| `platform` | `VARCHAR(50)` | Asal platform (contoh: `youtube`, `playstore`, `tiktok`). |
-| `source_url` | `TEXT` | Tautan langsung menuju konten/video sumber komentar. |
+| `platform` | `VARCHAR(50)` | Asal platform (contoh: `youtube`, `playstore`, `tiktok`, `instagram`, `Survei`). |
+| `source_url` | `TEXT` | Tautan langsung menuju konten/video sumber komentar atau nama berkas Excel survei. |
 | `author_name` | `VARCHAR(100)` | Nama anonim atau nama akun publik pengirim komentar. |
 | `text_content` | `TEXT` | Isi pesan atau ulasan opini publik. |
 | `posted_at` | `TIMESTAMPTZ` | Waktu asli komentar diunggah oleh masyarakat. |
@@ -129,13 +139,46 @@ Menyimpan riwayat narasi kesimpulan eksekutif yang di-generate oleh AI untuk pim
 | `insight_text` | `TEXT` | Narasi kesimpulan komprehensif dari seluruh sentimen publik. |
 | `created_at` | `TIMESTAMPTZ` | Waktu insight diproduksi oleh sistem. |
 
+### G. Tabel `scraper_logs`
+Menyimpan riwayat dan jejak audit eksekusi penarikan data dari seluruh platform media sosial.
+
+| Kolom | Tipe Data | Keterangan |
+| :--- | :--- | :--- |
+| `id` | `UUID` (Primary Key) | Pengenal unik log penarikan. |
+| `platform` | `VARCHAR(50)` | Asal kanal (contoh: `playstore`, `youtube`, `instagram`, `tiktok`). |
+| `target_id` | `VARCHAR(255)` | Identitas paket aplikasi atau URL postingan/video yang ditarik. |
+| `status` | `VARCHAR(20)` | Status eksekusi (`BERHASIL` atau `GAGAL`). |
+| `comments_count` | `INTEGER` | Jumlah komentar baru yang berhasil ditarik dan diindeks. |
+| `execution_time_sec` | `FLOAT` | Durasi waktu proses penarikan dan inferensi dalam detik. |
+| `error_message` | `TEXT` | Detail pesan kendala teknis (jika status gagal). |
+| `created_at` | `TIMESTAMPTZ` | Waktu saat proses penarikan dieksekusi. |
+
+### H. Tabel `generated_wordclouds`
+Menyimpan snapshot gambar visualisasi kata (*word cloud*) yang telah diproses dan dirender oleh sistem untuk kecepatan muat dasbor instan (0ms) serta jejak audit pemetaan ulang.
+
+| Kolom | Tipe Data | Keterangan |
+| :--- | :--- | :--- |
+| `id` | `UUID` (Primary Key) | Pengenal unik rekaman snapshot word cloud. |
+| `snapshot_id` | `VARCHAR(50)` | Kode batch snapshot bersama untuk seluruh varian sentimen dan layout. |
+| `sentiment` | `VARCHAR(20)` | Filter kategori sentimen (`all`, `positif`, `negatif`, `netral`). |
+| `layout` | `VARCHAR(20)` | Orientasi kanvas visual (`desktop` atau `mobile`). |
+| `image_data` | `TEXT` | String data gambar WebP/PNG ter-encode Base64. |
+| `top_words` | `JSONB` | Array daftar kata kunci teratas yang paling dominan frekuensinya. |
+| `total_comments` | `INTEGER` | Total volume komentar riil yang dipindai saat snapshot dibentuk. |
+| `created_at` | `TIMESTAMPTZ` | Waktu saat snapshot dibentuk. |
+| `created_by` | `VARCHAR(100)` | Username operator atau identitas sistem pembuat snapshot. |
+
 ---
 
 ## 3. Strategi Pengindeksan & Performa Query
 
-1. **Unique Index Username:** Kolom `users.username` diindeks secara unik untuk mempercepat proses verifikasi login OAuth2 (`WHERE username = :val`).
-2. **Foreign Key Indexing:** Relasi `ai_analysis.comment_id` ke `raw_comments.id` memastikan query `JOIN` untuk analitik agregasi berjalan instan.
-3. **JSONB Indexing:** Kolom `topic_tags` menggunakan tipe data asli `JSONB` yang mendukung pencarian topikal berbasis operator `@>` tanpa membebani CPU.
+1. **Urutan Waktu Post (`idx_raw_comments_posted_at_desc`):** Kolom `raw_comments(posted_at DESC)` diindeks secara descending untuk menjamin operasi sorting dan paginasi data explorer serta limit 1.000 ekspor berjalan instan tanpa full-table scan.
+2. **Filter Platform & Status (`idx_raw_comments_platform`, `idx_raw_comments_status`):** Mempercepat penyaringan multi-platform dan penelusuran status crawling.
+3. **Foreign Key Relasi JOIN (`idx_ai_analysis_comment_id`):** Relasi `ai_analysis.comment_id` ke `raw_comments.id` memastikan query `JOIN` antara komentar mentah dan hasil inferensi AI berjalan instan.
+4. **Sentimen & Emosi (`idx_ai_analysis_sentiment`, `idx_ai_analysis_emotion`):** Mempercepat filter analitik sentimen dan emosi pada Dashboard dan Eksplorasi Data.
+5. **Indeks GIN JSONB Topik (`idx_ai_analysis_topic_tags`):** Kolom `topic_tags` menggunakan tipe data asli `JSONB` yang diindeks dengan *Generalized Inverted Index* (GIN) untuk mendukung pencarian topikal berbasis operator `@>` secara efisien.
+6. **Unique Index Username (`ix_users_username`):** Kolom `users.username` diindeks secara unik untuk mempercepat proses verifikasi login OAuth2 (`WHERE username = :val`).
+7. **Riwayat Penarikan Data (`idx_scraper_logs_created_at_desc`, `idx_scraper_logs_platform`):** Mempercepat rendering tabel riwayat penarikan data secara descending.
 
 ---
 

@@ -8,19 +8,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import update
 from app.services.ai_engine import analyze_comments_batch
-from app.services.local_nlp import analyze_sentiment_local
+from app.services.local_nlp import analyze_sentiment_local, detect_emotion_local, extract_topics_local
 from app.models.models import RawComment, AIAnalysis
 from datetime import datetime, timezone
 import asyncio
 
 def get_scraper(source: str):
-    if source == "playstore":
+    s = source.lower().strip()
+    if s == "playstore":
         return PlayStoreScraper()
-    elif source == "youtube":
+    elif s == "youtube":
         return YouTubeScraper()
-    elif source == "apify":
+    elif s in ("apify", "instagram"):
         return ApifyScraper()
-    elif source == "tiktok":
+    elif s == "tiktok":
         return TikTokScraper()
     else:
         raise ValueError(f"Sumber {source} tidak dikenali.")
@@ -31,7 +32,7 @@ def chunk_list(lst, n):
 
 async def run_scraping_pipeline(source: str, target_id: str, limit: int, db: AsyncSession) -> List[dict]:
     scraper = get_scraper(source)
-    raw_comments = scraper.fetch_comments(target_id, limit)
+    raw_comments = await asyncio.to_thread(scraper.fetch_comments, target_id, limit)
     
     spam_pattern = re.compile(r'(http://|https://|www\.|bit\.ly|promo|diskon|judi|slot|pinjol|wa\.me|t\.me)', re.IGNORECASE)
     
@@ -67,12 +68,14 @@ async def run_scraping_pipeline(source: str, target_id: str, limit: int, db: Asy
             await db.flush() 
             
             local_sentiment = analyze_sentiment_local(text_content)
+            local_emotion = detect_emotion_local(text_content, local_sentiment)
+            local_topics = extract_topics_local(text_content, local_sentiment)
             
             new_analysis = AIAnalysis(
                 comment_id=new_comment.id,
                 sentiment=local_sentiment,
-                emotion="netral",
-                topic_tags=["umum"],
+                emotion=local_emotion,
+                topic_tags=local_topics,
                 ai_reasoning="Analisis internal sistem"
             )
             db.add(new_analysis)
@@ -84,13 +87,8 @@ async def run_scraping_pipeline(source: str, target_id: str, limit: int, db: Asy
             })
             
             word_count = len(text_content.split())
-            needs_groq = False
+            needs_groq = word_count >= 3
             
-            if word_count >= 6:
-                needs_groq = True
-            elif local_sentiment == "NETRAL" and word_count >= 3:
-                needs_groq = True
-                
             if needs_groq:
                 batch_jobs.append({
                     "id": str(new_comment.id),

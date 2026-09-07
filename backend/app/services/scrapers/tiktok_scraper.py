@@ -54,7 +54,7 @@ class TikTokScraper(BaseScraper):
                 continue
 
             extracted.append({
-                "platform": "TikTok (Apify)",
+                "platform": "TikTok",
                 "source_url": target_id,
                 "author_name": author_name,
                 "text_content": text_content,

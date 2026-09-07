@@ -9,6 +9,7 @@ import { Settings } from './pages/Settings';
 import { Login } from './pages/Login';
 import { JobScheduler } from './pages/JobScheduler';
 import { Users } from './pages/Users';
+import { ScrollToTop } from './components/ScrollToTop';
 import './index.css';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -22,6 +23,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
+      <ScrollToTop />
       <Routes>
         <Route path="/login" element={<Login />} />
         

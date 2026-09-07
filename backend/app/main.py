@@ -4,16 +4,25 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from contextlib import asynccontextmanager
 
-from app.db.session import get_db, AsyncSessionLocal as SessionLocal
+from app.db.session import get_db, AsyncSessionLocal as SessionLocal, engine
 from app.api.routes import router as api_router
 from app.api.auth import router as auth_router
-from app.models.models import User
+from app.api.system import router as system_router
+from app.models.models import User, SystemSetting, Base
 from app.core.security import get_password_hash
 from sqlalchemy.future import select
 from app.services.scheduler import start_scheduler, stop_scheduler
+import os
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    except Exception as e:
+        import logging
+        logging.error(f"Lifespan create_all error: {e}")
+
     try:
         async with SessionLocal() as db:
             query = select(User).where(User.username == "admin")
@@ -27,9 +36,17 @@ async def lifespan(app: FastAPI):
                 )
                 db.add(new_admin)
                 await db.commit()
+            
+            settings_query = select(SystemSetting)
+            settings_res = await db.execute(settings_query)
+            for s in settings_res.scalars().all():
+                if s.setting_key == "crawler_api_token" and s.setting_value:
+                    os.environ["APIFY_API_TOKEN"] = s.setting_value
+                elif s.setting_key == "groq_api_key" and s.setting_value:
+                    os.environ["GROQ_API_KEY"] = s.setting_value
     except Exception as e:
         import logging
-        logging.error(f"Lifespan admin init: {e}")
+        logging.error(f"Lifespan admin and settings init: {e}")
     
     try:
         start_scheduler()
@@ -62,6 +79,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
+app.include_router(system_router, prefix="/api", tags=["system"])
 app.include_router(api_router, prefix="/api")
 
 @app.get("/")

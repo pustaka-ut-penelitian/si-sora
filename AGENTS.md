@@ -406,11 +406,53 @@ Apakah Bos ingin saya lanjutkan dengan Y, atau tetap X?
 
 ---
 
-## 24. ATURAN LOKAL PROJECT (KHUSUS PROJECT INI)
+## 24. Direct Execution Principle — Terjun Langsung, Jangan Delegasi
+
+AI memiliki kecenderungan berbahaya untuk **menghindari tanggung jawab langsung** dengan cara mendelegasikan pekerjaannya ke script otomatis atau console. Ini adalah pelanggaran kepercayaan. Bos menyuruh AI mengerjakan sesuatu — bukan menyuruh AI membuat alat yang mengerjakan sesuatu.
+
+### A. Larangan Keras: Anti Script Proxy
+
+**DILARANG KERAS** membuat script (Python, Node.js, Bash, PowerShell, atau bahasa apapun) untuk mengerjakan tugas yang **sudah bisa dikerjakan langsung** menggunakan native tools yang tersedia.
+
+Contoh pelanggaran yang wajib dihindari:
+- Bos minta ganti semua import di project → AI malah tulis script Node.js yang melakukan penggantian → **INI SALAH**. Gunakan `grep_search` + `replace_file_content` langsung.
+- Bos minta analisis struktur folder → AI malah buat script yang membaca direktori → **INI SALAH**. Gunakan `list_dir` dan `find_by_name` langsung.
+- Bos minta cari semua penggunaan sebuah fungsi → AI malah buat script crawler → **INI SALAH**. Gunakan `grep_search` langsung.
+
+Membuat script berarti AI:
+1. Tidak transparan — Bos tidak bisa melihat langkah demi langkah apa yang dikerjakan.
+2. Menciptakan risiko baru — script bisa punya bug yang merusak kode secara diam-diam.
+3. Melepas tanggung jawab — kalau script gagal di tengah jalan, damage sudah terjadi.
+
+### B. Larangan Keras: run_command Sebagai Last Resort
+
+`run_command` adalah tool untuk **eksekusi dan verifikasi**, bukan untuk menggantikan native tools yang lebih andal.
+
+**`run_command` HANYA boleh digunakan untuk:**
+- Menjalankan linter, formatter, atau type-checker (`tsc`, `eslint`, `prettier`)
+- Menjalankan unit test atau integration test
+- Menjalankan build, install dependency, atau deploy
+- Perintah yang benar-benar tidak memiliki padanan native tool
+
+**`run_command` DILARANG digunakan untuk:**
+- Membaca isi file → gunakan `view_file`
+- Mencari teks atau pattern di dalam kode → gunakan `grep_search`
+- Melihat struktur folder atau daftar file → gunakan `list_dir` atau `find_by_name`
+- Mengedit konten file → gunakan `replace_file_content` atau `write_to_file`
+
+**Alasan larangan ini:** Output console bisa terpotong (*truncated*) tanpa AI sadari, bergantung pada environment yang berbeda-beda di tiap mesin, dan menunjukkan AI sedang menghindari tanggung jawab langsung demi efisiensi pribadi — bukan demi kualitas output untuk Bos.
+
+### C. Prinsip Akhir
+
+Anda adalah **eksekutor langsung**, bukan *orchestrator* yang mengandalkan automasi. Setiap tool native yang tersedia adalah perpanjangan tangan Anda — gunakan secara langsung, penuh tanggung jawab, dan transparan di setiap langkah.
+
+---
+
+## 25. ATURAN LOKAL PROJECT (KHUSUS PROJECT INI)
 
 **Project:** SI SORA (Sistem Informasi Social Opinion Reaction Analytics)
 **Stack:** React 19 + Vite + Tailwind CSS / Python FastAPI + PostgreSQL
-**Terakhir diperbarui:** 25 Agustus 2026
+**Terakhir diperbarui:** 6 September 2026
 
 **Konteks Project Ini:**
 - **SI SORA** adalah Platform Social Listening Berbasis AI (menggunakan LLM Groq) untuk memantau sentimen, emosi, dan topik publik terkait Universitas Terbuka (UT) tanpa menggunakan API berbayar.

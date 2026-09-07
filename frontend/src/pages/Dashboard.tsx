@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { apiClient } from "../api/client";
 import { Loader2, PieChart as PieIcon, BarChart3, Sparkles, Database, DownloadCloud, Activity, Info, TrendingUp, Smartphone, Smile, Frown, Meh, RefreshCw, Trash2, History, X } from "lucide-react";
@@ -19,9 +20,37 @@ export function Dashboard() {
   const [insightHistory, setInsightHistory] = useState<any[]>([]);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyTotalPages, setHistoryTotalPages] = useState(1);
-  const [wordCloud, setWordCloud] = useState<{image: string, sentiment: string} | null>(null);
+  const [wordCloud, setWordCloud] = useState<{
+    image: string;
+    sentiment: string;
+    layout?: string;
+    snapshot_id?: string;
+    total_comments?: number;
+    top_words?: string[];
+    created_at?: string;
+    created_by?: string;
+  } | null>(null);
   const [activeWordCloudTab, setActiveWordCloudTab] = useState<"all" | "positif" | "negatif" | "netral">("all");
-  const [wordCloudCache, setWordCloudCache] = useState<Record<string, {image: string, sentiment: string}>>({});
+  const [wordCloudCache, setWordCloudCache] = useState<Record<string, any>>({});
+  const [currentUserRole, setCurrentUserRole] = useState<string>("VIEWER");
+  const [showConfirmRegenModal, setShowConfirmRegenModal] = useState(false);
+  const [showWcHistoryModal, setShowWcHistoryModal] = useState(false);
+  const [isRegeneratingWc, setIsRegeneratingWc] = useState(false);
+  const [wcHistoryList, setWcHistoryList] = useState<any[]>([]);
+  const [loadingWcHistory, setLoadingWcHistory] = useState(false);
+  const [regenSuccessToast, setRegenSuccessToast] = useState<string | null>(null);
+  const [regenErrorToast, setRegenErrorToast] = useState<string | null>(null);
+  
+  useEffect(() => {
+    if (showConfirmRegenModal || showWcHistoryModal) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [showConfirmRegenModal, showWcHistoryModal]);
   
   const [loadingStats, setLoadingStats] = useState(true);
   const [loadingInsight, setLoadingInsight] = useState(true);
@@ -74,6 +103,38 @@ export function Dashboard() {
       setWordCloud(wordCloudCache[tab]);
     } else {
       fetchWordCloud(tab);
+    }
+  };
+
+  const fetchWordCloudHistory = async () => {
+    setLoadingWcHistory(true);
+    try {
+      const res = await apiClient.get("/api/stats/wordcloud/history?limit=15");
+      setWcHistoryList(res.data.data || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingWcHistory(false);
+    }
+  };
+
+  const handleRegenerateWordCloud = async () => {
+    setIsRegeneratingWc(true);
+    setRegenErrorToast(null);
+    try {
+      await apiClient.post("/api/stats/wordcloud/generate");
+      setRegenSuccessToast("Word cloud berhasil dipindai dan dibentuk ulang dari seluruh data riil.");
+      setWordCloudCache({});
+      await fetchWordCloud(activeWordCloudTab);
+      setShowConfirmRegenModal(false);
+      setTimeout(() => {
+        setRegenSuccessToast(null);
+      }, 4500);
+    } catch (err: any) {
+      console.error(err);
+      setRegenErrorToast(err.response?.data?.detail || "Gagal memperbarui word cloud.");
+    } finally {
+      setIsRegeneratingWc(false);
     }
   };
 
@@ -135,6 +196,24 @@ export function Dashboard() {
       }
     };
 
+    const checkUserRole = async () => {
+      try {
+        const response = await apiClient.get("/api/auth/me");
+        setCurrentUserRole(response.data?.data?.role || "VIEWER");
+      } catch (err) {
+        const token = localStorage.getItem("token");
+        if (token) {
+          try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            setCurrentUserRole(payload.role || "VIEWER");
+          } catch (e) {
+            setCurrentUserRole("VIEWER");
+          }
+        }
+      }
+    };
+
+    checkUserRole();
     fetchStats();
     fetchInsight();
     fetchWordCloud();
@@ -533,86 +612,169 @@ export function Dashboard() {
         </div>
         
         <div className="col-span-1 lg:col-span-12 bg-white/85 backdrop-blur-md rounded-[2rem] p-8 md:p-10 relative overflow-hidden shadow-[4px_4px_0px_0px_#cbd5e1] border-2 border-slate-200 animate-slide-up hover:-translate-y-1 transition-transform" style={{ animationDelay: '300ms' }}>
-          <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="mb-6 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="bg-[#2d68ff]/10 text-[#2d68ff] p-2.5 rounded-full">
+              <div className="bg-[#003f7a]/10 text-[#003f7a] p-2.5 rounded-2xl border-2 border-[#003f7a]/20">
                 <PieIcon size={20} strokeWidth={2.5} />
               </div>
               <div>
-                <h3 className="text-xl font-headline font-bold text-[#1a1c1d]">Word Cloud</h3>
+                <h3 className="text-xl font-headline font-black text-[#1a1c1d]">Word Cloud</h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  {wordCloud?.created_at ? (
+                    <>
+                      Snapshot: <span className="font-bold text-[#003f7a]">{formatDateID(wordCloud.created_at)}</span>
+                      {wordCloud.total_comments !== undefined && (
+                        <span> • {wordCloud.total_comments.toLocaleString('id-ID')} Komentar</span>
+                      )}
+                      {wordCloud.created_by && (
+                        <span> • Oleh {wordCloud.created_by}</span>
+                      )}
+                    </>
+                  ) : (
+                    "Visualisasi Frekuensi Kata Kunci Opini Publik"
+                  )}
+                </p>
               </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 p-1.5 rounded-full border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => handleTabChange("all")}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${
+                    activeWordCloudTab === "all"
+                      ? "bg-[#003f7a] text-white shadow-[2px_2px_0px_0px_#001a33] scale-105"
+                      : "text-slate-600 hover:bg-slate-200/70"
+                  }`}
+                >
+                  Semua Sentimen
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleTabChange("positif")}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${
+                    activeWordCloudTab === "positif"
+                      ? "bg-[#52b788] text-white shadow-[2px_2px_0px_0px_#2d7a54] scale-105"
+                      : "text-emerald-700 hover:bg-emerald-100/70"
+                  }`}
+                >
+                  Positif
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleTabChange("negatif")}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${
+                    activeWordCloudTab === "negatif"
+                      ? "bg-[#f87171] text-white shadow-[2px_2px_0px_0px_#c53030] scale-105"
+                      : "text-rose-700 hover:bg-rose-100/70"
+                  }`}
+                >
+                  Negatif
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleTabChange("netral")}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${
+                    activeWordCloudTab === "netral"
+                      ? "bg-slate-600 text-white shadow-[2px_2px_0px_0px_#334155] scale-105"
+                      : "text-slate-700 hover:bg-slate-200/70"
+                  }`}
+                >
+                  Netral
+                </button>
+              </div>
+
+              <div className="h-6 w-[2px] bg-slate-200 hidden sm:block mx-1"></div>
+
               <button
                 type="button"
-                onClick={() => handleTabChange("all")}
-                className={`px-4 py-2 rounded-full text-xs font-bold transition-all ${
-                  activeWordCloudTab === "all"
-                    ? "bg-[#003f7a] text-white shadow-[2px_2px_0px_0px_#001a33] scale-105"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                }`}
+                onClick={() => {
+                  setShowWcHistoryModal(true);
+                  fetchWordCloudHistory();
+                }}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold border-2 border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition-all shadow-[2px_2px_0px_0px_#cbd5e1] active:translate-y-0.5"
               >
-                Semua Sentimen
+                <History size={14} /> Riwayat
               </button>
-              <button
-                type="button"
-                onClick={() => handleTabChange("positif")}
-                className={`px-4 py-2 rounded-full text-xs font-bold transition-all ${
-                  activeWordCloudTab === "positif"
-                    ? "bg-[#52b788] text-white shadow-[2px_2px_0px_0px_#2d7a54] scale-105"
-                    : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                }`}
-              >
-                Positif
-              </button>
-              <button
-                type="button"
-                onClick={() => handleTabChange("negatif")}
-                className={`px-4 py-2 rounded-full text-xs font-bold transition-all ${
-                  activeWordCloudTab === "negatif"
-                    ? "bg-[#f87171] text-white shadow-[2px_2px_0px_0px_#c53030] scale-105"
-                    : "bg-rose-50 text-rose-700 hover:bg-rose-100"
-                }`}
-              >
-                Negatif
-              </button>
-              <button
-                type="button"
-                onClick={() => handleTabChange("netral")}
-                className={`px-4 py-2 rounded-full text-xs font-bold transition-all ${
-                  activeWordCloudTab === "netral"
-                    ? "bg-slate-600 text-white shadow-[2px_2px_0px_0px_#334155] scale-105"
-                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                }`}
-              >
-                Netral
-              </button>
+
+              {currentUserRole === "ADMIN" && (
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmRegenModal(true)}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold border-2 border-[#003f7a] bg-[#fecb00] text-[#003f7a] hover:bg-[#e5b700] transition-all shadow-[2px_2px_0px_0px_#003f7a] active:translate-y-0.5"
+                >
+                  <RefreshCw size={14} className={isRegeneratingWc ? "animate-spin" : ""} />
+                  Pindai & Bentuk Ulang Awan Kata
+                </button>
+              )}
             </div>
           </div>
+
+          {regenSuccessToast && (
+            <div className="mb-4 p-3.5 bg-emerald-50 border-2 border-emerald-500 rounded-2xl text-emerald-800 text-xs font-bold flex items-center justify-between shadow-[2px_2px_0px_0px_#059669] animate-fade-in">
+              <div className="flex items-center gap-2">
+                <Sparkles size={16} className="text-emerald-600 shrink-0" />
+                <span>{regenSuccessToast}</span>
+              </div>
+              <button onClick={() => setRegenSuccessToast(null)} className="text-emerald-600 hover:text-emerald-900">
+                <X size={16} />
+              </button>
+            </div>
+          )}
+
+          {regenErrorToast && (
+            <div className="mb-4 p-3.5 bg-rose-50 border-2 border-rose-500 rounded-2xl text-rose-800 text-xs font-bold flex items-center justify-between shadow-[2px_2px_0px_0px_#e11d48] animate-fade-in">
+              <div className="flex items-center gap-2">
+                <X size={16} className="text-rose-600 shrink-0" />
+                <span>{regenErrorToast}</span>
+              </div>
+              <button onClick={() => setRegenErrorToast(null)} className="text-rose-600 hover:text-rose-900">
+                <X size={16} />
+              </button>
+            </div>
+          )}
           
-          <div className="w-full flex items-center justify-center bg-[#f9f9fa] rounded-[1.5rem] border-2 border-dashed border-[#c2c6d3] relative overflow-hidden p-6 md:p-10 min-h-[320px]">
+          <div className="w-full flex flex-col items-center justify-center bg-[#f9f9fa] rounded-[1.5rem] border-2 border-dashed border-[#c2c6d3] relative overflow-hidden p-6 md:p-10 min-h-[320px]">
             {loadingWordCloud ? (
               <div className="flex flex-col items-center justify-center min-h-[300px] gap-4 text-slate-400">
-                <Loader2 size={36} className="animate-spin text-[#2d68ff]" />
+                <Loader2 size={36} className="animate-spin text-[#003f7a]" />
                 <p className="font-bold tracking-wide uppercase text-xs">Membentuk Visualisasi Kata...</p>
               </div>
             ) : wordCloud ? (
-              <div className="relative group w-full flex items-center justify-center">
-                <img src={wordCloud.image} alt="Word Cloud" className="w-full h-auto object-contain drop-shadow-xl hover:scale-[1.02] transition-transform duration-500" />
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white px-5 py-2 rounded-full shadow-[2px_2px_0px_0px_#c2c6d3] border-2 border-[#c2c6d3] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                  <span className="text-xs font-black uppercase tracking-wider text-[#1a1c1d] flex items-center gap-2">
-                    Kategori: 
-                    <span className={
-                      activeWordCloudTab === 'positif' ? 'text-[#52b788]' : 
-                      activeWordCloudTab === 'negatif' ? 'text-[#f87171]' : 
-                      activeWordCloudTab === 'netral' ? 'text-[#64748b]' :
-                      'text-[#003f7a]'
-                    }>
-                      {activeWordCloudTab === 'all' ? 'Kombinasi Seluruh Sentimen' : `Sentimen ${activeWordCloudTab}`}
+              <div className="w-full flex flex-col items-center justify-center gap-4">
+                <div className="relative group w-full flex items-center justify-center">
+                  <img src={wordCloud.image} alt="Word Cloud" className="w-full h-auto object-contain drop-shadow-xl hover:scale-[1.01] transition-transform duration-500" />
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white px-5 py-2 rounded-full shadow-[2px_2px_0px_0px_#c2c6d3] border-2 border-[#c2c6d3] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                    <span className="text-xs font-black uppercase tracking-wider text-[#1a1c1d] flex items-center gap-2">
+                      Kategori: 
+                      <span className={
+                        activeWordCloudTab === 'positif' ? 'text-[#52b788]' : 
+                        activeWordCloudTab === 'negatif' ? 'text-[#f87171]' : 
+                        activeWordCloudTab === 'netral' ? 'text-[#64748b]' :
+                        'text-[#003f7a]'
+                      }>
+                        {activeWordCloudTab === 'all' ? 'Kombinasi Seluruh Sentimen' : `Sentimen ${activeWordCloudTab}`}
+                      </span>
                     </span>
-                  </span>
+                  </div>
                 </div>
+
+                {wordCloud.top_words && wordCloud.top_words.length > 0 && (
+                  <div className="w-full flex flex-wrap items-center justify-center gap-2 pt-4 border-t border-slate-200">
+                    <span className="text-[11px] font-bold text-slate-500 flex items-center gap-1">
+                      <Sparkles size={13} className="text-[#003f7a]" /> Kata Populer:
+                    </span>
+                    {wordCloud.top_words.slice(0, 10).map((word, idx) => (
+                      <span
+                        key={idx}
+                        className="text-[11px] font-bold bg-white border border-slate-200 shadow-sm text-[#003f7a] px-2.5 py-0.5 rounded-full"
+                      >
+                        #{word}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             ) : (
               <p className="text-slate-400 font-bold uppercase text-xs tracking-wider">Visualisasi Tidak Tersedia</p>
@@ -663,7 +825,7 @@ export function Dashboard() {
                   <p className="font-medium tracking-wide">Menyusun rangkuman eksekutif mendalam...</p>
                 </div>
               ) : (
-                <div className="w-full animate-fade-in text-white/95 max-w-none md:pl-14 [&>h3]:text-[#fecb00] [&>h3]:font-black [&>h3]:text-lg [&>h3]:mt-6 [&>h3]:mb-3 [&>h3]:uppercase [&>ul]:list-disc [&>ul]:ml-6 [&>ul]:space-y-2 [&>ul]:mb-6 [&>ol]:list-decimal [&>ol]:ml-6 [&>ol]:space-y-2 [&>ol]:mb-6 [&>p]:leading-relaxed [&>p]:mb-4 font-medium text-[15px] md:text-base tracking-wide bg-black/10 p-6 md:p-8 rounded-2xl border border-white/5 shadow-inner">
+                <div className="w-full animate-fade-in text-white/95 max-w-none md:pl-14 [&>h3]:text-[#fecb00] [&>h3]:font-black [&>h3]:text-lg [&>h3]:mt-6 [&>h3]:mb-3 [&>h3]:uppercase [&>ul]:list-disc [&>ul]:ml-6 [&>ul]:space-y-2 [&>ul]:mb-6 [&>ol]:list-decimal [&>ol]:ml-6 [&>ol]:space-y-3 [&>ol]:mb-6 [&>ul>li>strong]:text-white [&>ol>li>strong]:text-[#fecb00] [&>blockquote]:border-l-4 [&>blockquote]:border-[#fecb00] [&>blockquote]:pl-4 [&>blockquote]:py-2 [&>blockquote]:my-3 [&>blockquote]:italic [&>blockquote]:text-white/85 [&>blockquote]:bg-white/5 [&>blockquote]:rounded-r-xl [&>p]:leading-relaxed [&>p]:mb-4 font-medium text-[15px] md:text-base tracking-wide bg-black/10 p-6 md:p-8 rounded-2xl border border-white/5 shadow-inner">
                   <ReactMarkdown>{insight}</ReactMarkdown>
                 </div>
               )}
@@ -736,6 +898,163 @@ export function Dashboard() {
             )}
           </div>
         </div>
+
+      {showConfirmRegenModal && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 w-screen h-screen z-[9999] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-fade-in">
+          <div className="bg-white rounded-[2rem] p-6 md:p-8 max-w-lg w-full border-2 border-slate-200 shadow-[8px_8px_0px_0px_#003f7a] relative">
+            <button
+              onClick={() => !isRegeneratingWc && setShowConfirmRegenModal(false)}
+              disabled={isRegeneratingWc}
+              className="absolute top-6 right-6 text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition-colors"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-[#fecb00] text-[#003f7a] p-3 rounded-2xl shadow-[2px_2px_0px_0px_#003f7a]">
+                <RefreshCw size={24} className={isRegeneratingWc ? "animate-spin" : ""} />
+              </div>
+              <div>
+                <h3 className="text-lg md:text-xl font-headline font-black text-[#003f7a]">
+                  Bentuk Ulang Visualisasi Kata
+                </h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  Pemetaan ulang komprehensif seluruh opini publik
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 border-2 border-slate-200 rounded-2xl p-4 mb-6 space-y-2">
+              <p className="text-xs text-slate-700 leading-relaxed font-medium">
+                Sistem akan memindai seluruh ribuan komentar dan survei riil dari awal, memfilter stopword akademik UT, dan mengalkulasi frekuensi kata kunci esensial secara proporsional.
+              </p>
+              <div className="flex items-center gap-2 text-[11px] font-bold text-amber-800 bg-amber-50 p-2 rounded-xl border border-amber-200">
+                <Info size={14} className="shrink-0 text-amber-600" />
+                <span>Snapshot baru akan tersimpan di database dan menggantikan tampilan dasbor saat ini.</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowConfirmRegenModal(false)}
+                disabled={isRegeneratingWc}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 border-2 border-slate-200 transition-all disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleRegenerateWordCloud}
+                disabled={isRegeneratingWc}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold text-[#003f7a] bg-[#fecb00] hover:bg-[#e5b700] border-2 border-[#003f7a] shadow-[2px_2px_0px_0px_#003f7a] active:translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-50"
+              >
+                {isRegeneratingWc ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    <span>Memproses Seluruh Data...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={16} />
+                    <span>Mulai Pindai Sekarang</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {showWcHistoryModal && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 w-screen h-screen z-[9999] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-fade-in">
+          <div className="bg-white rounded-[2rem] p-6 md:p-8 max-w-2xl w-full border-2 border-slate-200 shadow-[8px_8px_0px_0px_#003f7a] max-h-[85vh] flex flex-col relative">
+            <div className="flex items-center justify-between pb-4 border-b-2 border-slate-100 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="bg-[#003f7a] text-[#fecb00] p-2.5 rounded-xl shadow-[2px_2px_0px_0px_#001a33]">
+                  <History size={20} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-headline font-black text-[#003f7a]">
+                    Riwayat Pembentukan Word Cloud
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Daftar snapshot visualisasi kata yang tersimpan di basis data
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowWcHistoryModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto py-4 space-y-3 flex-1 pr-1 custom-scrollbar">
+              {loadingWcHistory ? (
+                <div className="flex flex-col items-center justify-center py-12 text-slate-400 gap-3">
+                  <Loader2 size={32} className="animate-spin text-[#003f7a]" />
+                  <span className="text-xs font-bold uppercase tracking-wider">Memuat Riwayat...</span>
+                </div>
+              ) : wcHistoryList.length === 0 ? (
+                <div className="text-center py-12 text-slate-400 font-medium text-sm">
+                  Belum ada catatan riwayat word cloud tersimpan.
+                </div>
+              ) : (
+                wcHistoryList.map((item, idx) => (
+                  <div
+                    key={item.snapshot_id || idx}
+                    className="bg-slate-50 hover:bg-slate-100/80 border-2 border-slate-200 rounded-2xl p-4 transition-all"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-mono font-bold bg-[#003f7a] text-white px-2.5 py-0.5 rounded-md">
+                          #{item.snapshot_id}
+                        </span>
+                        <span className="text-xs font-bold text-slate-700">
+                          {formatDateID(item.created_at)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-md">
+                          {item.total_comments?.toLocaleString('id-ID')} Komentar
+                        </span>
+                        <span className="text-[11px] font-bold bg-slate-200 text-slate-700 px-2 py-0.5 rounded-md">
+                          Oleh: {item.created_by || "Sistem"}
+                        </span>
+                      </div>
+                    </div>
+                    {item.top_words && item.top_words.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {item.top_words.slice(0, 8).map((word: string, wIdx: number) => (
+                          <span
+                            key={wIdx}
+                            className="text-[10px] font-semibold bg-white border border-slate-200 text-slate-600 px-2 py-0.5 rounded-full"
+                          >
+                            #{word}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="pt-4 border-t-2 border-slate-100 flex justify-end shrink-0">
+              <button
+                onClick={() => setShowWcHistoryModal(false)}
+                className="px-5 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border-2 border-slate-200 transition-colors"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       </div>
     </div>

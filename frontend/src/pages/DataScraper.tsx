@@ -3,7 +3,7 @@ import { apiClient } from "../api/client";
 import { DownloadCloud, Play, Video, Camera, AlertCircle, Loader2 } from "lucide-react";
 
 export function DataScraper() {
-  const [source, setSource] = useState<"playstore" | "youtube" | "apify">("playstore");
+  const [source, setSource] = useState<"playstore" | "youtube" | "instagram" | "tiktok">("playstore");
   const [targetId, setTargetId] = useState("");
   const [limit, setLimit] = useState(10);
   const [loading, setLoading] = useState(false);
@@ -44,44 +44,57 @@ export function DataScraper() {
           
           <div>
             <label className="block text-sm font-bold text-slate-900 mb-4 uppercase tracking-wider">Sumber Data</label>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <button
                 type="button"
                 onClick={() => setSource("playstore")}
-                className={`flex flex-col items-center justify-center p-6 rounded-3xl border-2 transition-all duration-300 active:scale-95 ${
+                className={`flex flex-col items-center justify-center p-5 rounded-3xl border-2 transition-all duration-300 active:scale-95 ${
                   source === "playstore"
                     ? "border-primary bg-primary/5 text-primary shadow-neo -translate-y-1"
                     : "border-slate-200 hover:border-primary/50 text-slate-500 hover:bg-slate-50"
                 }`}
               >
-                <Play size={32} className="mb-3" strokeWidth={source === "playstore" ? 2.5 : 2} />
-                <span className="text-base font-extrabold">Google Play</span>
+                <Play size={28} className="mb-2" strokeWidth={source === "playstore" ? 2.5 : 2} />
+                <span className="text-sm font-extrabold">Google Play</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setSource("youtube")}
-                className={`flex flex-col items-center justify-center p-6 rounded-3xl border-2 transition-all duration-300 active:scale-95 ${
+                className={`flex flex-col items-center justify-center p-5 rounded-3xl border-2 transition-all duration-300 active:scale-95 ${
                   source === "youtube"
                     ? "border-error bg-error/5 text-error shadow-neo -translate-y-1"
                     : "border-slate-200 hover:border-error/50 text-slate-500 hover:bg-slate-50"
                 }`}
               >
-                <Video size={32} className="mb-3" strokeWidth={source === "youtube" ? 2.5 : 2} />
-                <span className="text-base font-extrabold">YouTube</span>
+                <Video size={28} className="mb-2" strokeWidth={source === "youtube" ? 2.5 : 2} />
+                <span className="text-sm font-extrabold">YouTube</span>
               </button>
 
               <button
                 type="button"
-                onClick={() => setSource("apify")}
-                className={`flex flex-col items-center justify-center p-6 rounded-3xl border-2 transition-all duration-300 active:scale-95 ${
-                  source === "apify"
+                onClick={() => setSource("instagram")}
+                className={`flex flex-col items-center justify-center p-5 rounded-3xl border-2 transition-all duration-300 active:scale-95 ${
+                  source === "instagram"
                     ? "border-pink-500 bg-pink-500/5 text-pink-500 shadow-neo -translate-y-1"
                     : "border-slate-200 hover:border-pink-500/50 text-slate-500 hover:bg-slate-50"
                 }`}
               >
-                <Camera size={32} className="mb-3" strokeWidth={source === "apify" ? 2.5 : 2} />
-                <span className="text-base font-extrabold">Instagram</span>
+                <Camera size={28} className="mb-2" strokeWidth={source === "instagram" ? 2.5 : 2} />
+                <span className="text-sm font-extrabold">Instagram</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSource("tiktok")}
+                className={`flex flex-col items-center justify-center p-5 rounded-3xl border-2 transition-all duration-300 active:scale-95 ${
+                  source === "tiktok"
+                    ? "border-slate-900 bg-slate-900/5 text-slate-900 shadow-neo -translate-y-1"
+                    : "border-slate-200 hover:border-slate-900/50 text-slate-500 hover:bg-slate-50"
+                }`}
+              >
+                <Video size={28} className="mb-2" strokeWidth={source === "tiktok" ? 2.5 : 2} />
+                <span className="text-sm font-extrabold">TikTok</span>
               </button>
             </div>
           </div>
@@ -90,7 +103,8 @@ export function DataScraper() {
             <label htmlFor="targetId" className="block text-sm font-bold text-slate-900 mb-2 uppercase tracking-wider">
               {source === "playstore" && "App ID (contoh: id.ac.ut.sia)"}
               {source === "youtube" && "URL Video YouTube (contoh: https://www.youtube.com/watch?v=...)"}
-              {source === "apify" && "URL Profil Instagram UT"}
+              {source === "instagram" && "URL Postingan Instagram (contoh: https://www.instagram.com/p/...)"}
+              {source === "tiktok" && "URL Video TikTok (contoh: https://www.tiktok.com/@.../video/...)"}
             </label>
             <input
               id="targetId"
